@@ -169,7 +169,9 @@ def main():
 
 def run_preview(head, base, tid, task, contract, reg, policy):
     headdir = os.path.join(TMP, "head"); os.makedirs(headdir)
-    subprocess.run("git archive %s | tar -x -C %s" % (head, headdir), shell=True, cwd=WORK, check=True)
+    # a checkout (not `git archive`): archive filters such as export-ignore in the candidate's .gitattributes must not hide files
+    subprocess.run(["git", "--work-tree=" + headdir, "checkout", head, "--", "."], cwd=WORK, check=True, capture_output=True)
+    subprocess.run(["git", "reset", "-q"], cwd=WORK, capture_output=True)
     gatedir = os.path.join(TMP, "gatebase"); os.makedirs(gatedir)   # gate programs, oracles and baselines from BASE only
     subprocess.run("git archive %s gate oracle baselines 2>/dev/null | tar -x -C %s" % (base, gatedir), shell=True, cwd=WORK)
     out = os.path.join(TMP, "out"); os.makedirs(out); os.chmod(out, 0o777)
