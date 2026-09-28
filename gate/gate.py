@@ -59,11 +59,17 @@ def finish(verdict, reason=None):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f: f.write("## gate evidence\n```json\n" + js[:900000] + "\n```\n\n**VERDICT: %s**\n" % verdict)
     compact = {k: OUT[k] for k in ("head_sha", "base_sha", "task", "contract_sha256", "reasons")}
     compact["criteria"] = {k: v.get("status") for k, v in OUT["criteria"].items()}; compact["regression"] = {k: v.get("status") for k, v in OUT["regression"].items()}
-    # full evidence as compressed chunks in annotations (the only evidence channel readable with the agent App's permissions)
-    blob = base64.b64encode(zlib.compress(js.encode(), 9)).decode(); CH = 60000
-    parts = [blob[i:i + CH] for i in range(0, len(blob), CH)][:6]
-    for i, part in enumerate(parts): print("::notice title=gate-ev %d/%d::%s" % (i + 1, len(parts), part))
-    for f, data in SHOTS[:3]: print("::notice title=gate-shot %s::%s" % (f, data))
+    # full evidence (compressed) + visual fingerprints, as <=3800-character annotation chunks: the only evidence channel readable with
+    # the agent App's permissions. Annotations are limited per step, so they are written to a file that later workflow steps print.
+    lines = []
+    blob = base64.b64encode(zlib.compress(js.encode(), 9)).decode(); CH = 3800
+    parts = [blob[i:i + CH] for i in range(0, len(blob), CH)]
+    lines += ["::notice title=gate-ev %d/%d::%s" % (i + 1, len(parts), part) for i, part in enumerate(parts)]
+    for f, data in SHOTS:
+        fp = [data[i:i + CH] for i in range(0, len(data), CH)]
+        lines += ["::notice title=gate-fp %s %d/%d::%s" % (f, i + 1, len(fp), part) for i, part in enumerate(fp)]
+    if os.environ.get("RUNNER_TEMP"):
+        open(os.path.join(os.environ["RUNNER_TEMP"], "gate-annotations.txt"), "w").write("\n".join(lines) + "\n")
     print("::notice title=gate-verdict::%s" % verdict)
     print("::notice title=gate-evidence::%s" % json.dumps(compact, sort_keys=True, separators=(",", ":"))[:3800])
     print("GATE VERDICT: " + verdict)
@@ -268,8 +274,8 @@ def run_preview(head, base, tid, task, contract, reg, policy):
     for crit in [c["id"] for c in contract.get("criteria", []) if c.get("priority") == "must"]:
         if "%s:%s" % (tid, crit) not in OUT["criteria"]: OUT["criteria"]["%s:%s" % (tid, crit)] = {"status": "Unknown", "check": None, "detail": "no owner-approved oracle or probe mapped"}
     shots = sorted(f for f in os.listdir(os.path.join(out, "shots"))) if os.path.isdir(os.path.join(out, "shots")) else []
-    for f in shots:   # screenshots (for owner baseline decisions): published as annotations by finish()
-        SHOTS.append((f, base64.b64encode(open(os.path.join(out, "shots", f), "rb").read()).decode()))
+    for f in shots:   # visual fingerprints (for owner baseline decisions): published as annotations by finish()
+        if f.endswith(".json"): SHOTS.append((f, base64.b64encode(open(os.path.join(out, "shots", f), "rb").read()).decode()))
     for f in sorted(os.listdir(out)):
         if f.startswith("oracle-") or f in ("runner.log", "ingest-summary.json"):
             print("::group::%s" % f); print(open(os.path.join(out, f), errors="replace").read()[-40000:]); print("::endgroup::")

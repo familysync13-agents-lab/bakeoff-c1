@@ -2,7 +2,7 @@
 // network only: it can reach the preview, the ingest test double and the book-API test double, nothing else).
 // Input: /out/plan.json. Output: /out/results.jsonl (one line per criterion), /out/shots/*.png, /out/crawl/*, /out/runner.log.
 // The runner never receives the canary: the gate scans what the runner captured.
-import fs from 'node:fs'; import path from 'node:path'; import { spawn } from 'node:child_process'; import { createRequire } from 'node:module';
+import fs from 'node:fs'; import zlib from 'node:zlib'; import path from 'node:path'; import { spawn } from 'node:child_process'; import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright'); const { PNG } = require('pngjs'); const pixelmatch = require('pixelmatch').default || require('pixelmatch');
 const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
@@ -20,6 +20,24 @@ async function signIn(page, u) {
   await page.getByLabel('Email', { exact: true }).fill(u.email); await page.getByLabel('Password', { exact: true }).fill(u.password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL(u => new URL(u).pathname === '/lists', { timeout: 15000 });
+}
+// Visual fingerprint: the full-page screenshot reduced to 16x16-pixel block averages (RGB, 8 bit). Small enough to be published by the
+// gate and stored as the owner-approved baseline; compared with a per-block tolerance, so rendering noise passes while layout changes fail.
+const BS = 16;
+function fingerprint(buf) {
+  const im = PNG.sync.read(buf); const cols = Math.ceil(im.width / BS), rows = Math.ceil(im.height / BS); const out = Buffer.alloc(cols * rows * 3);
+  for (let by = 0; by < rows; by++) for (let bx = 0; bx < cols; bx++) {
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let y = by * BS; y < Math.min(im.height, by * BS + BS); y++) for (let x = bx * BS; x < Math.min(im.width, bx * BS + BS); x++) { const i = (y * im.width + x) * 4; r += im.data[i]; g += im.data[i + 1]; b += im.data[i + 2]; n++; }
+    const o = (by * cols + bx) * 3; out[o] = Math.round(r / n); out[o + 1] = Math.round(g / n); out[o + 2] = Math.round(b / n);
+  }
+  return { v: 1, w: im.width, h: im.height, bs: BS, cols, rows, rgb: zlib.deflateSync(out, { level: 9 }).toString('base64') };
+}
+function fpdiff(a, b) {
+  if (a.w !== b.w || a.h !== b.h) return `page size ${b.w}x${b.h} vs baseline ${a.w}x${a.h}`;
+  const x = zlib.inflateSync(Buffer.from(a.rgb, 'base64')), y = zlib.inflateSync(Buffer.from(b.rgb, 'base64')); let off = 0; const n = x.length / 3;
+  for (let i = 0; i < n; i++) { const d = Math.max(Math.abs(x[3 * i] - y[3 * i]), Math.abs(x[3 * i + 1] - y[3 * i + 1]), Math.abs(x[3 * i + 2] - y[3 * i + 2])); if (d > 24) off++; }
+  return off / n > 0.01 ? `${(100 * off / n).toFixed(1)}% of 16px blocks differ from the baseline` : null;
 }
 const med = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 
@@ -88,12 +106,11 @@ const PROBES = {
         }
         await page.goto(BASE + s.route, { waitUntil: 'load', timeout: 30000 }); await page.addStyleTag({ content: ANIM }); await sleep(800);
         const buf = await page.screenshot({ fullPage: true }); fs.writeFileSync(`/out/shots/${p.task}-${s.name}.png`, buf);
-        const bf = path.join('/baselines', p.task, s.name + '.png');
+        const fp = fingerprint(buf); fs.writeFileSync(`/out/shots/${p.task}-${s.name}.json`, JSON.stringify(fp));
+        const bf = path.join('/baselines', p.task, s.name + '.json');
         if (!fs.existsSync(bf)) { missing.push(s.name); continue; }
-        const a = PNG.sync.read(fs.readFileSync(bf)), b = PNG.sync.read(buf);
-        if (a.width !== b.width || a.height !== b.height) { bad.push(`${s.name}: size ${b.width}x${b.height} vs baseline ${a.width}x${a.height}`); continue; }
-        const d = pixelmatch(a.data, b.data, null, a.width, a.height, { threshold: 0.1 }); const r = d / (a.width * a.height);
-        if (r > (p.max_ratio || 0.01)) bad.push(`${s.name}: ${(r * 100).toFixed(2)}% pixels differ`);
+        const d = fpdiff(JSON.parse(fs.readFileSync(bf, 'utf8')), fp);
+        if (d) bad.push(`${s.name}: ${d}`);
       } catch (e) { return ['unknown', `${s.name}: ${e.message.split('\n')[0]}`]; } finally { await ctx.close(); }
     }
     if (bad.length) return ['fail', bad.join('; ')];
