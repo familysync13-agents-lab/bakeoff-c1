@@ -31,6 +31,6 @@ npm run dev
 
 ## Layout
 
-- `src/app` - routes (App Router). `src/server` - server-only code (config, database, auth, setup/seed, health).
+- `src/app` - routes (App Router). `src/components` - shared UI (app shell: header, main, footer). `src/server` - server-only code (config, database, auth, setup/seed, health).
 - `src/client` - browser-safe modules; must not import `src/server` (enforced by dependency-cruiser).
 - `src/instrumentation.ts` / `src/instrumentation-client.ts` - Sentry initialisation (server / browser).
