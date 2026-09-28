@@ -29,3 +29,18 @@ jobs:
           git cat-file -e "${BASE_SHA}^{commit}"
           mkdir -p "${RUNNER_TEMP}/gatecode" && git archive "${BASE_SHA}" gate | tar -x -C "${RUNNER_TEMP}/gatecode"
           GATE_WORK="$PWD" python3 "${RUNNER_TEMP}/gatecode/gate/gate.py"
+      - name: publish gate evidence (part 1)
+        if: always()
+        run: sed -n '1,9p' "${RUNNER_TEMP}/gate-annotations.txt" 2>/dev/null || true
+      - name: publish gate evidence (part 2)
+        if: always()
+        run: sed -n '10,18p' "${RUNNER_TEMP}/gate-annotations.txt" 2>/dev/null || true
+      - name: publish gate evidence (part 3)
+        if: always()
+        run: sed -n '19,27p' "${RUNNER_TEMP}/gate-annotations.txt" 2>/dev/null || true
+      - name: publish gate evidence (part 4)
+        if: always()
+        run: sed -n '28,36p' "${RUNNER_TEMP}/gate-annotations.txt" 2>/dev/null || true
+      - name: publish gate evidence (part 5)
+        if: always()
+        run: sed -n '37,45p' "${RUNNER_TEMP}/gate-annotations.txt" 2>/dev/null || true
