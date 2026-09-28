@@ -1,0 +1,16 @@
+node_modules
+.next
+dist
+coverage
+drizzle/meta
+package-lock.json
+next-env.d.ts
+AGENTS.md
+CLAUDE.md
+.bakeoff
+tasks
+gate
+oracle
+baselines
+.github
+policy.json
