@@ -146,17 +146,6 @@
    "given": "the exact state-changing HTTP requests alice's browser sent to rename and to delete her list",
    "when": "each is re-sent unchanged (method, URL, body and non-cookie headers; any anti-forgery token taken from the replaying session) from bob's signed-in session and from an anonymous session",
    "then": "alice's list is neither renamed nor deleted (verified afterwards in alice's session)"
-  },
-  {
-   "id": "AC11",
-   "type": "behavior",
-   "priority": "must",
-   "tags": [
-    "data-loss"
-   ],
-   "given": "the owner deleted a list",
-   "when": "the owner opens /lists/{id} within 30 days",
-   "then": "the page shows the list name marked \"Deleted\" and a button \"Restore list\" that restores the list with its content"
   }
  ],
  "canary_routes": [
@@ -165,5 +154,6 @@
   "/signup",
   "/lists"
  ],
- "version": 1
+ "version": 2,
+ "amendment_note": "v2 (owner decision on the Builder's BLOCKED:DECISION request): AC7 (permanent removal) stands; AC11 (30-day restore) removed. Deleted lists are gone for everyone, consistent with T4 AC6."
 }
