@@ -32,6 +32,13 @@
      "name": "landing-1280",
      "route": "/",
      "width": 1280
+    },
+    {
+     "name": "lists-375",
+     "route": "/lists",
+     "width": 375,
+     "user": "bob",
+     "setup": "one-list"
     }
    ],
    "max_ratio": 0.01
@@ -78,6 +85,16 @@
     "baselines/T1/landing-375.png": "4a3fa1f3a106c74eb49e942b2574072a2195a2bd7f7180fd5086539473305193",
     "baselines/T1/landing-768.png": "22d40fce16b9f012699915a63e5642f862acb2201549f6623d3a546761b0fc06",
     "baselines/T1/landing-1280.png": "88b6848d1a76c0d0dd114f8d7eff031a2aaf541119f750003d72436d6fe0bd1f"
+   }
+  },
+  {
+   "id": "A2",
+   "at": "2026-09-29T01:31:51Z",
+   "kind": "visual-baseline",
+   "reason": "T1 AC1 (app shell, all pages, phone width): the owner locks the signed-in list screen at 375 px as a visual baseline (fingerprint captured with the gate's algorithm from the accepted build; calibrated identical to CI fingerprints).",
+   "files": {
+    "baselines/T1/lists-375.json": "c915a5f4215d3294e4d54be7621e053e01b560f0b63f56b11a88af49a48ce0aa",
+    "baselines/T1/lists-375.png": "93a3d60c30fe2bdcbac96378dc9d4154f31cc7eae0758907dba3e4e131a55d76"
    }
   }
  ]
