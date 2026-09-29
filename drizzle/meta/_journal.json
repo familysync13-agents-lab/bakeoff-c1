@@ -15,6 +15,13 @@
       "when": 1790641933456,
       "tag": "0001_reading_lists",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790643328436,
+      "tag": "0002_books",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, check, index, integer, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
 
 // Better Auth core tables (user, session, account, verification).
 export const user = pgTable("user", {
@@ -95,4 +95,24 @@ export const readingList = pgTable(
   ],
 );
 
-export const schema = { user, session, account, verification, readingList };
+// Books added to a reading list (T3). At most one entry per book (search-result key) per list; removed with the list.
+export const book = pgTable(
+  "book",
+  {
+    id: text("id").primaryKey(),
+    listId: text("list_id")
+      .notNull()
+      .references(() => readingList.id, { onDelete: "cascade" }),
+    bookKey: text("book_key").notNull(),
+    title: text("title").notNull(),
+    authors: text("authors").array().notNull(),
+    firstPublishYear: integer("first_publish_year"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("book_list_id_book_key_unique").on(table.listId, table.bookKey),
+    index("book_list_id_created_at_idx").on(table.listId, table.createdAt),
+  ],
+);
+
+export const schema = { user, session, account, verification, readingList, book };

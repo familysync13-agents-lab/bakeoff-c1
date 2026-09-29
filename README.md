@@ -37,5 +37,9 @@ npm run dev
   queries in `src/server/lists.ts` are scoped to the owner, so another user's list behaves like a missing one (404);
   anonymous visitors also get 404 on `/lists/{id}` and `/lists/{id}/edit` (`/lists` and `/lists/new` redirect to `/login`).
   Sessions are Better Auth cookies (`APP_SECRET`; Secure only when `APP_URL` is https). Deleting a list is permanent.
+- Books (T3): on `/lists/{id}` the owner searches the book API (`BOOK_API_BASE_URL`, Open Library `/search.json`
+  format; client in `src/server/book-search.ts`, gives up after 4.5 s) and adds results to the list (`book` table, one
+  entry per work key per list). Search and add are owner-checked Server Actions (`src/app/lists/book-actions.ts`),
+  bound to the list on the server; API errors, malformed responses and timeouts show "Book search is unavailable".
 - `src/client` - browser-safe modules; must not import `src/server` (enforced by dependency-cruiser).
 - `src/instrumentation.ts` / `src/instrumentation-client.ts` - Sentry initialisation (server / browser).
