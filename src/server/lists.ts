@@ -46,7 +46,11 @@ export async function createList(db: Database, ownerId: string, name: string): P
 
 /** Renames the list if `ownerId` owns it; returns false otherwise (nothing changes). */
 export async function renameOwnedList(db: Database, ownerId: string, id: string, name: string): Promise<boolean> {
-  const rows = await db.update(readingList).set({ name }).where(owned(ownerId, id)).returning({ id: readingList.id });
+  const rows = await db
+    .update(readingList)
+    .set({ name })
+    .where(eq(readingList.id, id))
+    .returning({ id: readingList.id });
   return rows.length > 0;
 }
 
