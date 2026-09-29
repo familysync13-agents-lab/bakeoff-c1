@@ -10,9 +10,25 @@
   "basis": "owner directive 2026-09-28 (bake-off start: 'use the frozen contracts'); contract derived from the frozen Stack Bake-off Specification section D must-criteria; recorded as a deviation for independent review"
  },
  "checks": {
-  "AC7": "probe:canary"
+  "AC7": "probe:canary",
+  "AC1": "oracle:oracle/T4/check.mjs",
+  "AC2": "oracle:oracle/T4/check.mjs",
+  "AC3": "oracle:oracle/T4/check.mjs",
+  "AC4": "oracle:oracle/T4/check.mjs",
+  "AC5": "oracle:oracle/T4/check.mjs",
+  "AC6": "oracle:oracle/T4/check.mjs"
  },
  "probe_params": {},
  "oracle_timeout_s": 900,
- "amendments": []
+ "amendments": [
+  {
+   "id": "A1",
+   "at": "2026-09-29T01:42:16Z",
+   "kind": "oracle-of-record",
+   "reason": "critical tier: black-box oracle for AC1-AC6 written by the blind Verifier from the contract BEFORE any implementation (sha256 recorded 2026-09-28T22:5x); AC7 stays mapped to the gate's canary probe.",
+   "files": {
+    "oracle/T4/check.mjs": "1439c0f88682354aabc1072e8eb9c7ced3f88414ed36af087ca1a4b2e43ba607"
+   }
+  }
+ ]
 }
