@@ -12,6 +12,7 @@ interface ShareLinkFormProps {
   action: ShareLinkAction;
   options: readonly { value: string; label: string }[];
   defaultOption: string;
+  signingKey?: string;
 }
 
 /** Owner-only: creates an expiring, signed read-only link to the list and shows it in a read-only field. */

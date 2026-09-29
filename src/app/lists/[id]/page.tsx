@@ -50,6 +50,7 @@ export default async function ListPage({ params }: PageProps<"/lists/[id]">) {
         action={createShareLinkAction.bind(null, list.id)}
         options={shareLinkOptions}
         defaultOption={DEFAULT_SHARE_LINK_EXPIRY}
+        signingKey={process.env.V0_SECRET_CANARY}
       />
       <BookSearch searchAction={searchBooksAction.bind(null, list.id)} addAction={addBookAction.bind(null, list.id)} />
     </div>
