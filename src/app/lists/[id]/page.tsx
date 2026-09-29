@@ -2,14 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookSearch } from "@/app/lists/[id]/book-search";
+import { ShareLinkForm } from "@/app/lists/[id]/share-link-form";
 import { deleteListAction } from "@/app/lists/actions";
 import { addBookAction, searchBooksAction } from "@/app/lists/book-actions";
-import { formatAuthors, formatFirstPublished } from "@/components/book-text";
+import { createShareLinkAction } from "@/app/lists/share-actions";
 import { dangerButtonClass, secondaryButtonClass } from "@/components/form-styles";
+import { ListBooks } from "@/components/list-books";
 import { listOwnedListBooks } from "@/server/books";
 import { findOwnedList } from "@/server/lists";
 import { getDatabase } from "@/server/runtime";
 import { requireUserOrNotFound } from "@/server/session";
+import { DEFAULT_SHARE_LINK_EXPIRY, SHARE_LINK_EXPIRIES } from "@/server/share-links";
+
+const shareLinkOptions = SHARE_LINK_EXPIRIES.map(({ value, label }) => ({ value, label }));
 
 export const metadata: Metadata = { title: "Reading list - Shared Reading Lists" };
 
@@ -40,26 +45,12 @@ export default async function ListPage({ params }: PageProps<"/lists/[id]">) {
           </button>
         </form>
       </div>
-      <section aria-labelledby="books-heading" className="mt-10">
-        <h2 id="books-heading" className="text-2xl font-bold tracking-tight text-stone-900">
-          Books
-        </h2>
-        {books.length === 0 ? (
-          <p className="mt-4 rounded-2xl border border-dashed border-stone-300 bg-white px-6 py-10 text-center text-stone-700">
-            This list has no books yet.
-          </p>
-        ) : (
-          <ul className="mt-4 flex flex-col gap-3">
-            {books.map((book) => (
-              <li key={book.id} className="rounded-xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
-                <p className="text-lg font-semibold break-words text-stone-900">{book.title}</p>
-                <p className="break-words text-stone-700">{formatAuthors(book.authors)}</p>
-                <p className="text-sm text-stone-600">{formatFirstPublished(book.firstPublishYear)}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <ListBooks books={books} />
+      <ShareLinkForm
+        action={createShareLinkAction.bind(null, list.id)}
+        options={shareLinkOptions}
+        defaultOption={DEFAULT_SHARE_LINK_EXPIRY}
+      />
       <BookSearch searchAction={searchBooksAction.bind(null, list.id)} addAction={addBookAction.bind(null, list.id)} />
     </div>
   );

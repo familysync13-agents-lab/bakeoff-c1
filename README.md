@@ -41,5 +41,10 @@ npm run dev
   format; client in `src/server/book-search.ts`, gives up after 4.5 s) and adds results to the list (`book` table, one
   entry per work key per list). Search and add are owner-checked Server Actions (`src/app/lists/book-actions.ts`),
   bound to the list on the server; API errors, malformed responses and timeouts show "Book search is unavailable".
+- Share links (T4): on `/lists/{id}` the owner picks "Link expires in" (1 minute / 1 day / 7 days) and creates a link
+  `{APP_URL}/s/{token}` (owner-checked Server Action `src/app/lists/share-actions.ts`). The token is
+  `base64url(listId.expiresAt).base64url(HMAC-SHA256)` keyed with `V0_SECRET_CANARY` (`src/server/share-links.ts`);
+  verification recomputes the whole canonical token and compares in constant time. `/s/{token}` is a read-only page
+  (no forms or actions, no sign-in); tampered, expired or deleted-list links answer 404. Links cannot be revoked.
 - `src/client` - browser-safe modules; must not import `src/server` (enforced by dependency-cruiser).
 - `src/instrumentation.ts` / `src/instrumentation-client.ts` - Sentry initialisation (server / browser).
