@@ -49,6 +49,12 @@ npm run dev
 - Descriptions (T6): lists have an optional plain-text description ("Description" field on create and edit; at most
   500 characters after trimming, CRLF counted as one line break; blank means none, stored as NULL, also enforced by a
   database check). `/lists/{id}` and `/s/{token}` show it directly below the h1 (`src/components/list-description.tsx`).
+- Sorting (T9): on `/lists/{id}` (owner, list with books) a "Sort by" select (Date added / Title / Author) and a
+  "Sort" button (plain GET form) navigate to `?sort=added|title|author`. The order is view-only (URL only, nothing
+  stored; `src/server/book-order.ts`): case-insensitive title, or first author with "Unknown author" last, ties by
+  title then date added; missing or unknown values mean date added. The control sits outside the Books `<section>` but
+  is placed visually between its heading and the books (CSS subgrid, `src/components/list-books.tsx`). `/s/{token}`
+  ignores `sort`.
 - `src/client` - browser-safe modules; must not import `src/server` (enforced by dependency-cruiser).
 - `src/instrumentation.ts` / `src/instrumentation-client.ts` - Sentry initialisation (server / browser).
 - Error monitoring (T5): `GET /debug/server-error` throws an unhandled error (500, reported via `onRequestError`);
