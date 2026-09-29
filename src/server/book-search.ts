@@ -36,7 +36,7 @@ export function toBookResult(doc: unknown): BookResult | null {
   const year = record.first_publish_year;
   const firstPublishYear = typeof year === "number" && Number.isInteger(year) ? year : null;
   const key = text(record.key) ?? derivedBookKey(title, authors, firstPublishYear);
-  return { key, title, authors, firstPublishYear };
+  return { key, title: authors.join(", ") || UNTITLED, authors: [title], firstPublishYear };
 }
 
 /**
