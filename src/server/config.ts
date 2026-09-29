@@ -9,6 +9,8 @@ export interface ServerConfig {
   sentryDsn: string | undefined;
   publicSentryDsn: string | undefined;
   bookApiBaseUrl: string | undefined;
+  /** HMAC-SHA256 key of share links (V0_SECRET_CANARY); server-only, never sent to the browser. */
+  shareLinkKey: string | undefined;
 }
 
 const nonEmpty = (value: string | undefined): string | undefined => (value ? value : undefined);
@@ -24,6 +26,7 @@ export function getServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCon
     sentryDsn: nonEmpty(env.SENTRY_DSN),
     publicSentryDsn: nonEmpty(env.PUBLIC_SENTRY_DSN),
     bookApiBaseUrl: nonEmpty(env.BOOK_API_BASE_URL),
+    shareLinkKey: nonEmpty(env.V0_SECRET_CANARY),
   };
 }
 
