@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { renameListAction } from "@/app/lists/actions";
-import { ListNameForm } from "@/app/lists/list-name-form";
+import { ListForm } from "@/app/lists/list-form";
 import { PageCard } from "@/components/page-card";
 import { findOwnedList } from "@/server/lists";
 import { getDatabase } from "@/server/runtime";
@@ -16,11 +16,12 @@ export default async function EditListPage({ params }: PageProps<"/lists/[id]/ed
   if (!list) notFound();
   return (
     <PageCard title="Edit list">
-      <ListNameForm
+      <ListForm
         action={renameListAction.bind(null, list.id)}
         submitLabel="Save"
         cancelHref={`/lists/${encodeURIComponent(list.id)}`}
         defaultName={list.name}
+        defaultDescription={list.description ?? ""}
       />
     </PageCard>
   );

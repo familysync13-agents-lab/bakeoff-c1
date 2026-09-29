@@ -46,6 +46,9 @@ npm run dev
   `base64url(listId.expiresAt).base64url(HMAC-SHA256)` keyed with `V0_SECRET_CANARY` (`src/server/share-links.ts`);
   verification recomputes the whole canonical token and compares in constant time. `/s/{token}` is a read-only page
   (no forms or actions, no sign-in); tampered, expired or deleted-list links answer 404. Links cannot be revoked.
+- Descriptions (T6): lists have an optional plain-text description ("Description" field on create and edit; at most
+  500 characters after trimming, CRLF counted as one line break; blank means none, stored as NULL, also enforced by a
+  database check). `/lists/{id}` and `/s/{token}` show it directly below the h1 (`src/components/list-description.tsx`).
 - `src/client` - browser-safe modules; must not import `src/server` (enforced by dependency-cruiser).
 - `src/instrumentation.ts` / `src/instrumentation-client.ts` - Sentry initialisation (server / browser).
 - Error monitoring (T5): `GET /debug/server-error` throws an unhandled error (500, reported via `onRequestError`);

@@ -83,6 +83,8 @@ export const readingList = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    // Optional plain-text description (T6); null when absent, never an empty string.
+    description: text("description"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -92,6 +94,7 @@ export const readingList = pgTable(
   (table) => [
     index("reading_list_owner_id_idx").on(table.ownerId, table.createdAt),
     check("reading_list_name_length", sql`char_length(${table.name}) between 1 and 100`),
+    check("reading_list_description_length", sql`char_length(${table.description}) between 1 and 500`),
   ],
 );
 

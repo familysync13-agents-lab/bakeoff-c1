@@ -8,6 +8,7 @@ import { addBookAction, searchBooksAction } from "@/app/lists/book-actions";
 import { createShareLinkAction } from "@/app/lists/share-actions";
 import { dangerButtonClass, secondaryButtonClass } from "@/components/form-styles";
 import { ListBooks } from "@/components/list-books";
+import { ListDescription } from "@/components/list-description";
 import { listOwnedListBooks } from "@/server/books";
 import { findOwnedList } from "@/server/lists";
 import { getDatabase } from "@/server/runtime";
@@ -35,6 +36,7 @@ export default async function ListPage({ params }: PageProps<"/lists/[id]">) {
         Back to my lists
       </Link>
       <h1 className="mt-4 text-3xl font-bold tracking-tight break-words text-stone-900">{list.name}</h1>
+      <ListDescription description={list.description} />
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <Link href={`${listPath}/edit`} className={secondaryButtonClass}>
           Edit
