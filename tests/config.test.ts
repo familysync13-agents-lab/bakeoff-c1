@@ -8,6 +8,7 @@ const env = {
   DATABASE_URL: "postgres://app:dbpass@db:5432/preview",
   SENTRY_DSN: "http://server@ingest:9000/1",
   PUBLIC_SENTRY_DSN: "http://public@ingest:9000/1",
+  BOOK_API_BASE_URL: "http://books:9100",
   V0_SECRET_CANARY: "AGENTSAPP-CANARY-test-value",
 } as unknown as NodeJS.ProcessEnv;
 
@@ -18,6 +19,7 @@ describe("server configuration", () => {
       release: "0123abcd",
       sentryDsn: "http://server@ingest:9000/1",
       publicSentryDsn: "http://public@ingest:9000/1",
+      bookApiBaseUrl: "http://books:9100",
     });
   });
 

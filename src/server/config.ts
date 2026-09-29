@@ -8,6 +8,7 @@ export interface ServerConfig {
   databaseUrl: string;
   sentryDsn: string | undefined;
   publicSentryDsn: string | undefined;
+  bookApiBaseUrl: string | undefined;
 }
 
 const nonEmpty = (value: string | undefined): string | undefined => (value ? value : undefined);
@@ -22,6 +23,7 @@ export function getServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCon
     databaseUrl: env.DATABASE_URL ?? "",
     sentryDsn: nonEmpty(env.SENTRY_DSN),
     publicSentryDsn: nonEmpty(env.PUBLIC_SENTRY_DSN),
+    bookApiBaseUrl: nonEmpty(env.BOOK_API_BASE_URL),
   };
 }
 
