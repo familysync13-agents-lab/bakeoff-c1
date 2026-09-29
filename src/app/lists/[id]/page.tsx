@@ -5,12 +5,12 @@ import { deleteListAction } from "@/app/lists/actions";
 import { dangerButtonClass, secondaryButtonClass } from "@/components/form-styles";
 import { findOwnedList } from "@/server/lists";
 import { getDatabase } from "@/server/runtime";
-import { requireUser } from "@/server/session";
+import { requireUserOrNotFound } from "@/server/session";
 
 export const metadata: Metadata = { title: "Reading list - Shared Reading Lists" };
 
 export default async function ListPage({ params }: PageProps<"/lists/[id]">) {
-  const user = await requireUser();
+  const user = await requireUserOrNotFound();
   const { id } = await params;
   const list = await findOwnedList(getDatabase().db, user.id, id);
   if (!list) notFound();

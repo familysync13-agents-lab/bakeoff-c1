@@ -19,16 +19,22 @@ const current = vi.hoisted(() => ({ userId: null as string | null, db: null as u
 
 vi.mock("@/server/runtime", () => ({ getDatabase: () => current.db }));
 vi.mock("@/server/session", async () => {
-  const { redirect } = await import("next/navigation");
+  const { notFound, redirect } = await import("next/navigation");
   return {
     requireUser: async () => {
       if (!current.userId) redirect("/login");
+      return { id: current.userId, name: "Test" };
+    },
+    requireUserOrNotFound: async () => {
+      if (!current.userId) notFound();
       return { id: current.userId, name: "Test" };
     },
   };
 });
 
 const { createListAction, deleteListAction, renameListAction } = await import("@/app/lists/actions");
+const { default: ListPage } = await import("@/app/lists/[id]/page");
+const { default: EditListPage } = await import("@/app/lists/[id]/edit/page");
 
 const url = testDatabaseUrl();
 let handle: DatabaseHandle;
@@ -142,5 +148,26 @@ describe("list Server Actions", () => {
     expect(await digestOf(deleteListAction(list.id))).toContain("/lists");
     expect(await nameInDb(list.id)).toBeUndefined();
     expect(await digestOf(deleteListAction(list.id))).toContain("NEXT_HTTP_ERROR_FALLBACK;404");
+  });
+});
+
+describe("list pages", () => {
+  const props = (id: string) => ({ params: Promise.resolve({ id }), searchParams: Promise.resolve({}) });
+
+  it("answer 404 to anonymous visitors, other users and after deletion; render for the owner", async () => {
+    const list = await createList(handle.db, alice, "Page test");
+    for (const Page of [ListPage, EditListPage]) {
+      current.userId = alice;
+      await expect(Page(props(list.id))).resolves.toBeTruthy();
+      for (const userId of [bob, null]) {
+        current.userId = userId;
+        expect(await digestOf(Page(props(list.id)))).toContain("NEXT_HTTP_ERROR_FALLBACK;404");
+      }
+    }
+    await deleteOwnedList(handle.db, alice, list.id);
+    for (const userId of [alice, bob, null]) {
+      current.userId = userId;
+      expect(await digestOf(ListPage(props(list.id)))).toContain("NEXT_HTTP_ERROR_FALLBACK;404");
+    }
   });
 });

@@ -1,6 +1,6 @@
 import "server-only";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getAuth } from "./runtime";
 
 export interface CurrentUser {
@@ -18,5 +18,12 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  return user;
+}
+
+/** The signed-in user; anonymous visitors get a 404 (used for list URLs, so their existence is never revealed). */
+export async function requireUserOrNotFound(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) notFound();
   return user;
 }
