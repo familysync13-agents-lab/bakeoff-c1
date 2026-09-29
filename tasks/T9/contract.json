@@ -5,11 +5,11 @@
  ],
  "criteria": [
   {
-   "given": "alice signed in, with a list containing at least three books (added via \"Search books\" / \"Add\") whose titles and first authors differ and were added in an order that is neither alphabetical by title nor by author",
+   "given": "alice signed in, with a new list to which she added, via \"Search books\" / \"Search\" / \"Add\", \"The Hobbit\" (search \"tolkien\"), then \"Dune\" (search \"dune\"), then \"Animal Farm\" (search \"orwell\")",
    "id": "AC1",
    "priority": "must",
    "tags": [],
-   "then": "the \"Books\" section shows a select labelled \"Sort by\" with options \"Date added\", \"Title\", \"Author\" (\"Date added\" selected) and a button \"Sort\", and the books are listed in the order they were added (oldest first)",
+   "then": "a select labelled \"Sort by\" with options \"Date added\", \"Title\", \"Author\" (\"Date added\" selected) and a button \"Sort\" are shown after the \"Books\" heading and before \"Link expires in\" and \"Search books\", not inside the Books section element but within a common container with it that has no h1; the books are listed in the order they were added: The Hobbit, Dune, Animal Farm",
    "type": "behavior",
    "when": "she opens /lists/{id}"
   },
@@ -18,7 +18,7 @@
    "id": "AC2",
    "priority": "must",
    "tags": [],
-   "then": "the URL is /lists/{id}?sort=title, \"Title\" is selected, and the books are listed in ascending case-insensitive order of their titles; after a reload the same order and selection are shown",
+   "then": "the URL is /lists/{id}?sort=title, \"Title\" is selected, and the books are listed as Animal Farm, Dune, The Hobbit; after a reload the same order and selection are shown",
    "type": "behavior",
    "when": "alice selects \"Title\" in \"Sort by\" and presses \"Sort\""
   },
@@ -27,25 +27,25 @@
    "id": "AC3",
    "priority": "must",
    "tags": [],
-   "then": "the URL is /lists/{id}?sort=author, \"Author\" is selected, and the books are listed in ascending case-insensitive order of their first displayed author name, books shown as \"Unknown author\" last and equal authors ordered by title; after a reload the same order and selection are shown",
+   "then": "the URL is /lists/{id}?sort=author, \"Author\" is selected, and the books are listed as Dune (Frank Herbert), Animal Farm (George Orwell), The Hobbit (J.R.R. Tolkien); after a reload the same order and selection are shown",
    "type": "behavior",
    "when": "alice selects \"Author\" in \"Sort by\" and presses \"Sort\""
   },
   {
-   "given": "the list sorted by \"Title\" (/lists/{id}?sort=title)",
+   "given": "the list of AC1 sorted by \"Title\" (/lists/{id}?sort=title)",
    "id": "AC4",
    "priority": "must",
    "tags": [],
-   "then": "each shows the books in date-added order (oldest first) with \"Date added\" selected, and no error message or error status is shown",
+   "then": "each shows the books in date-added order (The Hobbit, Dune, Animal Farm) with \"Date added\" selected, and no error message or error status is shown",
    "type": "behavior",
-   "when": "alice selects \"Date added\" and presses \"Sort\"; separately, opens /lists/{id} without a sort parameter and /lists/{id}?sort=bogus"
+   "when": "alice selects \"Date added\" and presses \"Sort\"; separately, opens /lists/{id} without a sort parameter, /lists/{id}?sort=added and /lists/{id}?sort=bogus"
   },
   {
-   "given": "alice has sorted her list by \"Title\" and by \"Author\" (AC2, AC3) and has a share link for it created with \"Create share link\"",
+   "given": "alice has sorted the list of AC1 by \"Title\" and by \"Author\" (AC2, AC3) and has a share link for it created with \"Create share link\"",
    "id": "AC5",
    "priority": "must",
    "tags": [],
-   "then": "the owner page shows date-added order with \"Date added\" selected (the choice was not saved), and the share page shows the books in date-added order with no \"Sort by\" control; the list's books are unchanged (same books, no duplicates, none removed)",
+   "then": "the owner page shows date-added order with \"Date added\" selected (the choice was not saved), and the share page shows the books in date-added order with no \"Sort by\" control; the list's books are unchanged (same three books, no duplicates, none removed)",
    "type": "behavior",
    "when": "she opens /lists/{id} without a sort parameter (also after signing out and in again), and an anonymous visitor opens the share link, also with ?sort=title appended"
   },
@@ -59,8 +59,17 @@
    "when": "she opens /lists/{id} and /lists/{id}?sort=author"
   },
   {
-   "conditions": "alice signed in; GET /lists/{id}?sort=title for a list with at least three books, at 375, 768 and 1280 px width",
+   "given": "the list of AC1 with a share link created on /lists/{id}",
    "id": "AC7",
+   "priority": "must",
+   "tags": [],
+   "then": "the owner page's Books section text contains no \"Sort by\", \"Date added\" or \"Sort\" control text and equals the share page's Books section text; the existing T4 checks (T4 AC1, AC3) still pass",
+   "type": "behavior",
+   "when": "the text of the Books section element (the closest section/region containing the \"Books\" heading, without the heading text) is read on /lists/{id} and, by an anonymous visitor, on the share page"
+  },
+  {
+   "conditions": "alice signed in; GET /lists/{id}?sort=title for the list of AC1, at 375, 768 and 1280 px width",
+   "id": "AC8",
    "metric": "axe-core violations with impact serious or critical (WCAG 2.1 A/AA rule tags)",
    "priority": "must",
    "tags": [
@@ -70,8 +79,17 @@
    "type": "threshold"
   },
   {
+   "given": "lists containing a book shown as \"Unknown author\" and two books with the same first author (not producible with the book test double; checked by the implementation's own tests)",
+   "id": "AC9",
+   "priority": "should",
+   "tags": [],
+   "then": "books shown as \"Unknown author\" come last, and books with the same first author are ordered by title (case-insensitive), then by date added",
+   "type": "behavior",
+   "when": "they are sorted by \"Author\""
+  },
+  {
    "given": "alice on /lists/{id}?sort=title",
-   "id": "AC8",
+   "id": "AC10",
    "priority": "should",
    "tags": [],
    "then": "the new book appears in the \"Books\" section at its title-sorted position (after the page updates or a reload of the same URL)",
@@ -79,13 +97,13 @@
    "when": "she searches for a book and presses \"Add\" on a result"
   },
   {
-   "id": "AC9",
+   "id": "AC11",
    "priority": "should",
    "refs": [
     "owner judgment at 375, 768 and 1280 px",
     "tasks/T1/contract.json AC1 (visual style)"
    ],
-   "statement": "The \"Sort by\" control fits the existing look of the list page, sits with the \"Books\" heading, is usable by keyboard, and does not cause horizontal overflow at phone, tablet and desktop widths.",
+   "statement": "The \"Sort by\" control fits the existing look of the list page, visually sits right after the \"Books\" heading (before the book items), is usable by keyboard, and does not cause horizontal overflow at phone, tablet and desktop widths.",
    "tags": [
     "design"
    ],
@@ -94,23 +112,24 @@
  ],
  "id": "T9",
  "interface": {
-  "ui": "On /lists/{id} (owner only), inside the section with heading \"Books\", when the list has at least one book: a select labelled \"Sort by\" with exactly the options \"Date added\" (default), \"Title\", \"Author\", and a button \"Sort\" that applies the selection by navigating to /lists/{id}?sort=added, /lists/{id}?sort=title or /lists/{id}?sort=author respectively (an implementation may also apply the selection immediately on change, but the \"Sort\" button must work). GET /lists/{id}?sort=title and ?sort=author render the books in that order with the matching option pre-selected in \"Sort by\"; no sort parameter, sort=added, or any other/unknown value renders date-added order (oldest first, as before) with \"Date added\" selected and no error. Order rules: \"Title\" = ascending by title, case-insensitive; \"Author\" = ascending by the first listed author name as displayed (e.g. \"Frank Herbert\"), case-insensitive, with books shown as \"Unknown author\" last; ties are broken by title (case-insensitive), then by date added. Each book item keeps its existing content (title, author(s), first publish year). The share page /s/{token} is unchanged: no \"Sort by\" control, books in date-added order, and a sort query parameter on it is ignored. Reused names: seeded user alice@example.test / Correct-Horse-1 (T2), \"Search books\" / \"Search\" / \"Add\" (T3), \"Link expires in\" / \"Create share link\" / \"Share link\" (T4)."
+  "ui": "On /lists/{id} (owner only), when the list has at least one book: a select labelled \"Sort by\" with exactly the options \"Date added\" (default), \"Title\", \"Author\", and a button \"Sort\" that applies the selection by navigating to /lists/{id}?sort=added, /lists/{id}?sort=title or /lists/{id}?sort=author respectively (an implementation may also apply the selection immediately on change, but the \"Sort\" button must work). Placement (owner decision): the \"Sort by\" select and \"Sort\" button are NOT inside the Books section element (the <section>/region that contains the h2 \"Books\" and the book items; the \"Books\" heading stays inside that element); they come right after the \"Books\" heading, i.e. after it in document order and before the \"Share\" section (\"Link expires in\") and \"Search books\", and they share a common container with the Books section that contains no h1. Consequently the text of the Books section (without its heading) contains only the book items (or \"This list has no books yet.\") and is identical on /lists/{id} (unsorted) and /s/{token} for the same list. GET /lists/{id}?sort=title and ?sort=author render the books in that order with the matching option pre-selected in \"Sort by\"; no sort parameter, sort=added, or any other/unknown value renders date-added order (oldest first, as before) with \"Date added\" selected and no error. Order rules: \"Title\" = ascending by title, case-insensitive; \"Author\" = ascending by the first listed author name as displayed (e.g. \"Frank Herbert\"), case-insensitive, with books shown as \"Unknown author\" last; ties are broken by title (case-insensitive), then by date added. Each book item keeps its existing content (title, author(s), first publish year). The share page /s/{token} is unchanged: no \"Sort by\" control, books in date-added order, and a sort query parameter on it is ignored. Verification fixture (owner decision): books are added through the UI with one book from each of the searches \"tolkien\", \"dune\" and \"orwell\" of the book test double, in this order: \"The Hobbit\" (J.R.R. Tolkien, 1937), \"Dune\" (Frank Herbert, 1965), \"Animal Farm\" (George Orwell, 1945). Expected orders: date added = The Hobbit, Dune, Animal Farm; Title = Animal Farm, Dune, The Hobbit; Author = Dune, Animal Farm, The Hobbit. Reused names: seeded user alice@example.test / Correct-Horse-1, \"Sign in\", \"Sign out\", \"Name\", \"Create list\", \"Edit\", \"Save\", \"Delete list\" (T2), \"Search books\" / \"Search\" / \"Search results\" / \"Add\" (T3), \"Link expires in\" / \"Create share link\" / \"Share link\" (T4), \"This list has no books yet.\"."
  },
  "non_goals": [
   "saving the sort order on the list or per user (no schema change)",
   "sorting or a sort control on the share page /s/{token} (it keeps date-added order)",
   "sorting on the lists index /lists or in book search results",
   "descending order (Z-A) or sorting by other fields (e.g. first publish year)",
-  "surname-aware or locale-specific collation rules beyond case-insensitive comparison",
+  "surname-aware, article-ignoring (\"The ...\") or locale-specific collation rules beyond case-insensitive comparison",
   "manual reordering (drag and drop) of books",
-  "removing books, pagination or filtering"
+  "removing books, pagination or filtering",
+  "changes to the book-search test double (gate/mocks/books.mjs) or to oracle/T4/check.mjs"
  ],
  "open_questions": [],
  "scope": {
   "paths": [
    "**"
   ],
-  "summary": "On the owner's list page /lists/{id}, the owner can view the list's books sorted by title or by author instead of the default order (date added). The sort is a view-only choice (owner decision): it is carried in the page URL (query parameter sort) so it survives a reload and can be bookmarked, but it is not saved on the list, does not change the stored books, and does not affect the read-only share page /s/{token}, which keeps showing books in the order they were added. Existing behaviour of the list page (T2-T4, T6) and its access rules are unchanged."
+  "summary": "On the owner's list page /lists/{id}, the owner can view the list's books sorted by title or by author instead of the default order (date added). The sort is a view-only choice (owner decision): it is carried in the page URL (query parameter sort) so it survives a reload and can be bookmarked, but it is not saved on the list, does not change the stored books, and does not affect the read-only share page /s/{token}, which keeps showing books in the order they were added. The \"Sort by\" control is placed right after the \"Books\" heading but outside the Books <section> element (owner decision), so that the Books section itself still holds only the books and reads the same on the owner page and the share page. Existing behaviour of the list page (T2-T4, T6) and its access rules are unchanged."
  },
  "tier": "standard",
  "title": "Sort books by title or author",
