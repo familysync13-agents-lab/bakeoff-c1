@@ -22,7 +22,10 @@ PROTECTED = ["oracle/**", "baselines/**", "tasks/**", ".github/**", "CODEOWNERS"
 NEVER_VIA_PR = [".github/**", "gate/**", "CODEOWNERS", "policy.json"]
 IMG = {  # multi-platform index digests (Step 2C Action 3 toolchain + scanners pinned in gate/images.json)
     **json.load(open(os.path.join(GATE, "images.json")))}
-TASK_ORDER = ["T0", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"]
+def task_order(base):
+    """Every task id on the BASE branch in numeric order (T0, T1, ... T10, ...): earlier tasks are the regression set."""
+    names = git("ls-tree", "-d", "--name-only", base + ":tasks", check=False).decode().split()
+    return sorted({n for n in names if re.fullmatch(r"T[0-9]+", n)}, key=lambda n: int(n[1:]))
 
 def match(path, pats):
     for p in pats:
@@ -174,7 +177,8 @@ def main():
         except SystemExit: raise
         except Exception as e: OUT["checks"]["reuse_error"] = str(e)[:200]
     reg = []
-    for t in TASK_ORDER[:TASK_ORDER.index(tid)] if tid in TASK_ORDER else []:
+    order = task_order(base)
+    for t in order[:order.index(tid)] if tid in order else []:
         tj, c, _ = load_task(t)
         if tj and c and tj.get("checks") and tj.get("status") != "BLOCKED:DECISION": reg.append((t, tj, c))
     run_preview(head, base, tid, task, contract, reg, policy)
