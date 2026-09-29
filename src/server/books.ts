@@ -92,3 +92,44 @@ export async function listOwnedListBooks(db: Database, ownerId: string, listId: 
     .where(and(eq(book.listId, listId), eq(readingList.ownerId, ownerId)))
     .orderBy(asc(book.createdAt), asc(book.id));
 }
+
+/** Owner-page view orders for a list's books (T9); carried in the `sort` query parameter, never stored. */
+export const BOOK_SORTS = [
+  { value: "added", label: "Date added" },
+  { value: "title", label: "Title" },
+  { value: "author", label: "Author" },
+] as const;
+
+export type BookSort = (typeof BOOK_SORTS)[number]["value"];
+
+/** Reads the `sort` query parameter; a missing, repeated or unknown value means date-added order. */
+export function parseBookSort(raw: string | string[] | undefined): BookSort {
+  return raw === "title" || raw === "author" ? raw : "added";
+}
+
+// Case-insensitive, locale-independent comparison (no collation rules beyond ignoring case).
+const compareText = (a: string, b: string): number => {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  return x < y ? -1 : x > y ? 1 : 0;
+};
+
+/**
+ * Returns `books` (given in date-added order) in the requested order. Title: ascending by title. Author: ascending by
+ * the first listed author, books without authors ("Unknown author") last, ties by title. Remaining ties keep
+ * date-added order (the sort is stable).
+ */
+export function sortBooks<T extends Pick<ListBook, "title" | "authors">>(books: readonly T[], sort: BookSort): T[] {
+  const sorted = [...books];
+  if (sort === "title") sorted.sort((a, b) => compareText(a.title, b.title));
+  if (sort === "author") {
+    sorted.sort((a, b) => {
+      const [x] = a.authors;
+      const [y] = b.authors;
+      const byAuthor =
+        x === undefined || y === undefined ? Number(x === undefined) - Number(y === undefined) : compareText(x, y);
+      return byAuthor || compareText(a.title, b.title);
+    });
+  }
+  return sorted;
+}
