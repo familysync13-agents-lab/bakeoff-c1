@@ -122,22 +122,16 @@ def main():
     if hits: finish("FAIL:CANARY", "canary value present in repository files %s" % hits)
     # ---------------- tamper gate / amendments (owner decision right, exact hashes) ----------------
     if prot:
-        # amend/<T>/...: one task; amend/multi/...: several tasks, each task's own latest amendment lists the exact hash of every
-        # protected file of that task (task.json itself excepted) - one owner approval covers the whole, hash-bound PR
-        m1 = re.match(r"^amend/(T[0-9]+)/", branch); multi = branch.startswith("amend/multi/")
+        tid = (re.match(r"^amend/(T[0-9]+)/", branch) or [None, None])[1]
         task_dirs = sorted({p.split("/")[1] for p in prot if p.count("/") >= 2 and p.split("/")[0] in ("tasks", "oracle", "baselines")})
-        if multi: tids = task_dirs
-        elif m1 and all(t == m1.group(1) for t in task_dirs): tids = [m1.group(1)]
-        else: finish("FAIL:TAMPER", "protected change outside an amend/<task>/ branch or across tasks")
-        if not tids or any(p for p in prot if not (p.count("/") >= 2 and p.split("/")[1] in tids)): finish("FAIL:TAMPER", "protected change not attributable to an amended task")
-        for tid in tids:
-            task = json.loads(show(head, "tasks/%s/task.json" % tid) or b"null")
-            am = (task or {}).get("amendments") or []
-            listed = am[-1].get("files", {}) if am else {}
-            for p in [x for x in prot if x.split("/")[1] == tid]:
-                if p == "tasks/%s/task.json" % tid: continue
-                b = show(head, p)
-                if listed.get(p) != (sha256(b) if b is not None else "DELETED"): finish("FAIL:TAMPER", "protected file %s not covered by the latest amendment hash of %s" % (p, tid))
+        if not tid or any(t != tid for t in task_dirs): finish("FAIL:TAMPER", "protected change outside an amend/<task>/ branch or across tasks")
+        task = json.loads(show(head, "tasks/%s/task.json" % tid) or b"null")
+        am = (task or {}).get("amendments") or []
+        listed = am[-1].get("files", {}) if am else {}
+        for p in prot:
+            if p == "tasks/%s/task.json" % tid: continue
+            b = show(head, p)
+            if listed.get(p) != (sha256(b) if b is not None else "DELETED"): finish("FAIL:TAMPER", "protected file %s not covered by the latest amendment hash" % p)
         try: reviews = api("/repos/%s/pulls/%s/reviews?per_page=100" % (REPO, PR["number"]))
         except Exception as e: finish("BLOCKED:EVIDENCE", "cannot read reviews: %s" % str(e)[:120])
         mine = [r for r in reviews if (r.get("user") or {}).get("login", "").lower() == policy["owner_login"].lower() and r.get("state") in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED")]
