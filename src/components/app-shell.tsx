@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { SiteFooter } from "./site-footer";
-import { SiteHeader } from "./site-header";
+import { SiteHeader, type SiteHeaderProps } from "./site-header";
 
 export const MAIN_CONTENT_ID = "main-content";
 
 /** Layout used by every page: skip link, header with primary navigation, main content area and footer. */
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, ...header }: SiteHeaderProps & { children: ReactNode }) {
   return (
     <>
       <a
@@ -14,7 +14,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         Skip to content
       </a>
-      <SiteHeader />
+      <SiteHeader {...header} />
       <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex w-full flex-1 flex-col outline-none">
         {children}
       </main>

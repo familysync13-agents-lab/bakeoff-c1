@@ -49,3 +49,23 @@ describe("landing page and app shell", () => {
     expect(text).toContain("Share them read-only");
   });
 });
+
+describe("app shell when signed in", () => {
+  const signOut = async () => {};
+  const doc = new DOMParser().parseFromString(
+    `<!doctype html><html lang="en"><body>${renderToStaticMarkup(
+      <AppShell user={{ name: "Alice" }} signOutAction={signOut}>
+        <p>content</p>
+      </AppShell>,
+    )}</body></html>`,
+    "text/html",
+  );
+
+  it("shows a Sign out button and a link to the user's lists instead of Sign in / Sign up", () => {
+    const buttons = [...doc.querySelectorAll("header button")].map((b) => b.textContent?.trim());
+    expect(buttons).toEqual(["Sign out"]);
+    expect(links(doc, "My lists")).toEqual(["/lists"]);
+    expect(links(doc, "Sign in")).toEqual([]);
+    expect(links(doc, "Sign up")).toEqual([]);
+  });
+});
