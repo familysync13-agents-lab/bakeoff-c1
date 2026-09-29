@@ -2,309 +2,345 @@ import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 
-const base = (process.argv[2] || '').replace(/\/$/, '');
-const done = new Set();
 const ids = Array.from({ length: 8 }, (_, i) => `AC${i + 1}`);
-const emit = (criterion, result, detail) => {
-  if (done.has(criterion)) return;
-  done.add(criterion);
-  console.log(JSON.stringify({ criterion, result, ...(detail ? { detail } : {}) }));
-};
+const reported = new Set();
+function report(criterion, error) {
+  if (reported.has(criterion)) return;
+  reported.add(criterion);
+  console.log(JSON.stringify(error ? { criterion, result: 'fail', detail: String(error.message || error).slice(0, 1800) } : { criterion, result: 'pass' }));
+}
 const deadline = setTimeout(() => {
-  for (const id of ids) emit(id, 'fail', 'Run exceeded time budget; not verified');
+  for (const id of ids) report(id, new Error('Not verified: verifier exceeded its nine-minute budget'));
   process.exit(0);
-}, 550_000);
-const assert = (ok, message) => { if (!ok) throw new Error(message); };
-const norm = s => s.replace(/\s+/g, ' ').trim();
-const books = [
-  { title: 'The Hobbit', author: 'J.R.R. Tolkien', year: '1937', query: 'tolkien' },
-  { title: 'Dune', author: 'Frank Herbert', year: '1965', query: 'dune' },
-  { title: 'Animal Farm', author: 'George Orwell', year: '1945', query: 'orwell' },
+}, 540000);
+const assert = (value, message) => { if (!value) throw new Error(message); };
+const normalize = value => value.replace(/\s+/g, ' ').trim();
+const fixture = [
+  { query: 'tolkien', title: 'The Hobbit', author: 'J.R.R. Tolkien', year: '1937' },
+  { query: 'dune', title: 'Dune', author: 'Frank Herbert', year: '1965' },
+  { query: 'orwell', title: 'Animal Farm', author: 'George Orwell', year: '1945' },
 ];
-const added = books.map(b => b.title);
+const added = fixture.map(book => book.title);
 const titleOrder = ['Animal Farm', 'Dune', 'The Hobbit'];
 const authorOrder = ['Dune', 'Animal Farm', 'The Hobbit'];
-let browser, owner, visitor, fixturePromise;
-const button = (p, name) => p.getByRole('button', { name, exact: true });
-const label = (p, name) => p.getByLabel(name, { exact: true });
-async function visible(l) { await l.waitFor({ state: 'visible', timeout: 12_000 }); }
-async function eventually(fn, message) {
-  const end = Date.now() + 12_000;
+let browser, owner, anonymous, page, visitor, base, primary, setupError;
+async function eventually(fn, description, timeout = 12000) {
+  const until = Date.now() + timeout;
   let last;
   do {
-    try { return await fn(); } catch (e) { last = e; }
+    try { return await fn(); } catch (error) { last = error; }
     await new Promise(resolve => setTimeout(resolve, 150));
-  } while (Date.now() < end);
-  throw new Error(`${message}: ${last?.message || 'timeout'}`);
+  } while (Date.now() < until);
+  throw new Error(`${description}: ${last?.message || 'timed out'}`);
 }
-async function init() {
-  if (browser) return;
-  assert(/^https?:\/\//.test(base), 'Usage: node check.mjs <baseURL>');
-  browser = await chromium.launch({ args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-  const a = await browser.newContext();
-  const b = await browser.newContext();
-  a.setDefaultTimeout(12_000); b.setDefaultTimeout(12_000);
-  a.setDefaultNavigationTimeout(20_000); b.setDefaultNavigationTimeout(20_000);
-  owner = await a.newPage(); visitor = await b.newPage();
-  await login();
-}
+async function visible(locator) { await locator.waitFor({ state: 'visible' }); }
 async function goto(p, path) {
-  const r = await p.goto(new URL(path, base).href, { waitUntil: 'domcontentloaded' });
-  assert(r && r.status() < 400, `GET ${path}: HTTP ${r?.status()}`);
-  return r;
+  const response = await p.goto(new URL(path, base).href, { waitUntil: 'domcontentloaded' });
+  assert(response && response.status() < 400, `GET ${path}: HTTP ${response?.status()}`);
+  return response;
+}
+async function noError(p) {
+  const alerts = await p.getByRole('alert').allTextContents();
+  assert(!alerts.some(text => /error|invalid|unavailable|failed|failure|something went wrong/i.test(text)), `Error alert: ${alerts.join(' / ')}`);
+  const body = await p.locator('body').innerText();
+  assert(!/internal server error|application error|something went wrong|\b500\s*[-:]?\s*server error/i.test(body), 'Error page/message displayed');
 }
 async function login() {
-  await goto(owner, '/login');
-  await label(owner, 'Email').fill('alice@example.test');
-  await label(owner, 'Password').fill('Correct-Horse-1');
-  await button(owner, 'Sign in').click();
-  await owner.waitForURL(u => u.pathname === '/lists');
-  await visible(button(owner, 'Sign out'));
+  await goto(page, '/login');
+  await page.getByLabel('Email', { exact: true }).fill('alice@example.test');
+  await page.getByLabel('Password', { exact: true }).fill('Correct-Horse-1');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.waitForURL(url => url.pathname === '/lists');
+  await visible(page.getByRole('heading', { name: 'My lists', exact: true }));
 }
-async function create(suffix) {
-  const name = `T9 ${suffix} ${randomUUID()}`;
-  await goto(owner, '/lists/new');
-  await label(owner, 'Name').fill(name);
-  await button(owner, 'Create list').click();
-  await owner.waitForURL(u => /^\/lists\/[^/]+$/.test(u.pathname) && u.pathname !== '/lists/new');
-  await visible(owner.getByRole('heading', { name, level: 1, exact: true }));
-  return { name, path: new URL(owner.url()).pathname };
-}
-function section(p) {
+function books(p) {
   return p.getByRole('heading', { name: 'Books', exact: true }).locator('xpath=ancestor::*[self::section or @role="region"][1]');
 }
-async function sectionText(p) {
-  const s = section(p); await visible(s);
-  return norm(await s.evaluate(el => {
-    const clone = el.cloneNode(true);
-    for (const h of clone.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"]')) {
-      if (h.textContent.trim() === 'Books') h.remove();
+async function bookText(p) {
+  await visible(books(p));
+  return normalize(await books(p).evaluate(element => {
+    const clone = element.cloneNode(true);
+    for (const heading of clone.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"]')) {
+      if (heading.textContent.trim() === 'Books') heading.remove();
     }
     return clone.textContent;
   }));
 }
-async function checkBooks(p, order = added, expectedBooks = books) {
+async function checkBooks(p, order) {
   await eventually(async () => {
-    const s = section(p); await visible(s);
-    const result = await s.evaluate((el, expected) => {
-      const text = el.innerText.replace(/\s+/g, ' ').trim();
-      const found = [];
-      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-      while (walker.nextNode()) {
-        const n = walker.currentNode;
-        for (const b of expected) {
-          // Titles may share a text node with metadata; boundaries prevent Dune matching Dune Messiah.
-          if (n.textContent.trim() === b.title) found.push({ title: b.title, node: n.parentElement });
-        }
-      }
-      return { text, found: found.map(({ title, node }) => {
-        const b = expected.find(x => x.title === title);
-        let item = node.closest('li,[role="listitem"],article');
-        if (!item || !el.contains(item)) {
-          item = node;
-          while (item !== el && !(item.textContent.includes(b.author) && item.textContent.includes(b.year))) item = item.parentElement;
-        }
-        const t = item?.innerText || '';
-        const titleCount = found.filter(f => item?.contains(f.node)).length;
-        return { title, itemText: t, titleCount, isSection: item === el };
-      }), listItems: el.querySelectorAll('li,[role="listitem"]').length };
-    }, expectedBooks);
-    assert(JSON.stringify(result.found.map(x => x.title)) === JSON.stringify(order), `Books order/count: ${JSON.stringify(result.found.map(x => x.title))}; expected ${JSON.stringify(order)}`);
-    if (result.listItems) assert(result.listItems === order.length, `Unexpected book item count ${result.listItems}`);
-    for (const b of expectedBooks) {
-      const row = result.found.find(x => x.title === b.title);
-      assert(row && !row.isSection && row.titleCount === 1, `Cannot identify distinct book item for ${b.title}`);
-      assert(row.itemText.includes(b.author), `${b.title}: missing author ${b.author}`);
-      assert(new RegExp(`\\b${b.year}\\b`).test(row.itemText), `${b.title}: missing year ${b.year}`);
+    const section = books(p);
+    const text = await bookText(p);
+    const matches = [...text.matchAll(/The Hobbit|Animal Farm|Dune(?![\p{L}\p{N}])/gu)];
+    assert(JSON.stringify(matches.map(m => m[0])) === JSON.stringify(order), `Books order/count: ${text}`);
+    const items = section.getByRole('listitem');
+    const count = await items.count();
+    if (count) assert(count === order.length, `Expected ${order.length} book items, found ${count}`);
+    for (let i = 0; i < order.length; i++) {
+      const expected = fixture.find(book => book.title === order[i]);
+      const itemText = count ? normalize(await items.nth(i).innerText()) : text.slice(matches[i].index, matches[i + 1]?.index ?? text.length);
+      assert(itemText.includes(expected.title) && itemText.includes(expected.author) && itemText.includes(expected.year), `Missing/misplaced book fields for ${expected.title}: ${itemText}`);
     }
-  }, 'Book contents did not settle');
+  }, 'Books');
 }
-async function add(b) {
-  await label(owner, 'Search books').fill(b.query);
-  await button(owner, 'Search').click();
-  // The interface specifies an accessible name, but does not prescribe its role.
-  const target = owner.getByRole('listitem').filter({ has: owner.getByText(b.title, { exact: true }) }).filter({ has: button(owner, 'Add') });
-  await visible(target);
-  assert(await target.evaluate(el => {
-    for (let a = el.parentElement; a; a = a.parentElement) {
-      const text = (a.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => document.getElementById(id)?.textContent || '').join(' ').trim();
-      if (a.getAttribute('aria-label') === 'Search results' || text === 'Search results') return true;
-    }
-    return false;
-  }), 'Add result is not inside Search results');
-  await target.getByRole('button', { name: 'Add', exact: true }).click();
-  await visible(section(owner).getByText(b.title, { exact: true }));
-  // Ensure strictly separated additions even with second-resolution timestamps.
-  await new Promise(resolve => setTimeout(resolve, 1100));
+async function selection(p, expected) {
+  const select = p.getByLabel('Sort by', { exact: true });
+  await visible(select);
+  await eventually(async () => {
+    // Browser callbacks have no access to Node lexical variables.
+    const actual = await select.evaluate(element => element.tagName === 'SELECT' ? element.selectedOptions[0]?.textContent.trim() : null);
+    assert(actual === expected, `Expected selected option ${expected}; got ${actual}`);
+  }, 'Selection');
 }
-async function fixture() {
-  await init();
-  if (!fixturePromise) fixturePromise = (async () => {
-    const f = await create('books');
-    for (const b of books) await add(b);
-    await goto(owner, f.path);
-    await visible(section(owner));
-    return f;
-  })();
-  return fixturePromise;
+async function createList(label) {
+  const name = `T9 ${label} ${randomUUID()}`;
+  await goto(page, '/lists/new');
+  await page.getByLabel('Name', { exact: true }).fill(name);
+  await page.getByRole('button', { name: 'Create list', exact: true }).click();
+  await page.waitForURL(url => /^\/lists\/[^/]+$/.test(url.pathname) && url.pathname !== '/lists/new');
+  await visible(page.getByRole('heading', { level: 1, name, exact: true }));
+  return { name, path: new URL(page.url()).pathname };
 }
-async function selected(p, text) {
-  await visible(label(p, 'Sort by'));
-  await eventually(async () => assert(await label(p, 'Sort by').evaluate(el => el.tagName === 'SELECT' && el.selectedOptions[0]?.textContent.trim() === text), `Expected ${text} selected`), 'Selection');
+async function addBook(book) {
+  await page.getByLabel('Search books', { exact: true }).fill(book.query);
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  const results = page.getByRole('listitem').filter({ has: page.getByText(book.title, { exact: true }) });
+  // Search results are named by contract, but their container's role is unspecified.
+  const row = results.filter({ has: page.getByRole('button', { name: 'Add', exact: true }) });
+  await visible(row);
+  assert((await row.innerText()).includes(book.author), `Wrong search result for ${book.title}`);
+  await row.getByRole('button', { name: 'Add', exact: true }).click();
+  await eventually(async () => assert((await bookText(page)).includes(book.title), `Book not added: ${book.title}`), 'Add');
+  // Re-enter the owner view to avoid retaining stale search results between additions.
+  await goto(page, new URL(page.url()).pathname);
 }
-async function sort(f, text, value, order) {
-  await label(owner, 'Sort by').selectOption({ label: text });
-  await button(owner, 'Sort').click();
-  await owner.waitForURL(u => u.pathname === f.path && u.search === `?sort=${value}`);
-  await selected(owner, text); await checkBooks(owner, order);
+async function mainFixture() {
+  if (setupError) throw new Error(`Fixture unavailable: ${setupError.message}`);
+  if (primary) return primary;
+  try {
+    const list = await createList('sort');
+    for (const book of fixture) await addBook(book);
+    primary = list;
+    return list;
+  } catch (error) { setupError = error; throw error; }
 }
-async function noError(p) {
-  const alerts = [];
-  for (const alert of await p.getByRole('alert').all()) {
-    if (await alert.isVisible()) alerts.push(await alert.innerText());
-  }
-  assert(!alerts.some(t => /error|invalid|unavailable|failed|failure|exception/i.test(t)), `Error alert: ${alerts.join('; ')}`);
-  const text = await p.locator('body').innerText();
-  assert(!/internal server error|application error|something went wrong|unexpected error|invalid sort|unknown sort/i.test(text), 'Page displays an error');
+async function applySort(list, label, value) {
+  await page.getByLabel('Sort by', { exact: true }).selectOption({ label });
+  await page.getByRole('button', { name: 'Sort', exact: true }).click();
+  await page.waitForURL(url => url.pathname === list.path && url.search === `?sort=${value}`);
+  await selection(page, label);
 }
-async function share(f) {
-  await goto(owner, f.path);
-  await label(owner, 'Link expires in').selectOption({ label: '7 days' });
-  await button(owner, 'Create share link').click();
-  await eventually(async () => assert(/^https?:\/\/.+\/s\/[^/\s]+$/.test(await label(owner, 'Share link').inputValue()), 'Missing absolute Share link'), 'Share link creation');
-  const u = new URL(await label(owner, 'Share link').inputValue());
-  assert(/^\/s\/[^/]+$/.test(u.pathname), 'Share link route');
-  // APP_URL may use the gate-internal alias; navigate through the supplied reachable origin.
-  return u.pathname + u.search;
+async function share(list) {
+  await goto(page, list.path);
+  await page.getByLabel('Link expires in', { exact: true }).selectOption({ label: '7 days' });
+  await page.getByRole('button', { name: 'Create share link', exact: true }).click();
+  const field = page.getByLabel('Share link', { exact: true });
+  await visible(field);
+  let link;
+  await eventually(async () => {
+    link = await field.inputValue();
+    assert(/^https?:\/\//.test(link), 'Share link is not absolute');
+    assert(/^\/s\/[^/]+$/.test(new URL(link).pathname), 'Share link has wrong route');
+  }, 'Share link');
+  // APP_URL can name the same preview through a different internal hostname.
+  const url = new URL(link);
+  return new URL(url.pathname + url.search, base).href;
 }
 async function readOnly(p) {
   for (const name of ['Edit', 'Delete list', 'Search', 'Add', 'Create share link']) {
-    for (const role of ['button', 'link']) assert(await p.getByRole(role, { name, exact: true }).count() === 0, `Share exposes ${name}`);
+    for (const role of ['button', 'link']) assert(await p.getByRole(role, { name, exact: true }).count() === 0, `Share page has ${name} control`);
   }
-  assert(await label(p, 'Search books').count() === 0, 'Share exposes Search books');
+  assert(await p.getByLabel('Search books', { exact: true }).count() === 0, 'Share page has search field');
+  assert(await p.getByLabel('Sort by', { exact: true }).count() === 0, 'Share page has Sort by');
 }
 
 const checks = {
   AC1: async () => {
-    const f = await fixture(); await goto(owner, f.path);
-    await checkBooks(owner); await selected(owner, 'Date added');
-    const options = await label(owner, 'Sort by').locator('option').allTextContents();
-    assert(JSON.stringify(options.map(norm)) === JSON.stringify(['Date added', 'Title', 'Author']), 'Sort by options differ');
-    await visible(button(owner, 'Sort'));
-    const h = owner.getByRole('heading', { name: 'Books', exact: true });
-    assert(await h.evaluate(el => el.tagName === 'H2'), 'Books heading must be h2');
-    const handles = await Promise.all([label(owner, 'Sort by'), button(owner, 'Sort'), label(owner, 'Link expires in'), label(owner, 'Search books')].map(l => l.elementHandle()));
-    assert(await h.evaluate((heading, [select, sortButton, expiry, search]) => {
-      const s = heading.closest('section,[role="region"]');
-      const before = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-      if (!s || s.contains(select) || s.contains(sortButton)) return false;
-      let common = s.parentElement;
-      while (common && !(common.contains(select) && common.contains(sortButton))) common = common.parentElement;
-      return common && !common.querySelector('h1') && [select, sortButton].every(c => before(heading, c) && before(c, expiry) && before(c, search));
-    }, handles), 'Sort controls violate Books/common-container/document-order placement');
+    const list = await mainFixture();
+    await goto(page, list.path);
+    await selection(page, 'Date added');
+    const select = page.getByLabel('Sort by', { exact: true });
+    const options = await select.locator('option').allTextContents();
+    assert(JSON.stringify(options.map(normalize)) === JSON.stringify(['Date added', 'Title', 'Author']), `Sort options: ${options}`);
+    await visible(page.getByRole('button', { name: 'Sort', exact: true }));
+    const heading = await page.getByRole('heading', { name: 'Books', exact: true }).elementHandle();
+    const section = await books(page).elementHandle();
+    const button = await page.getByRole('button', { name: 'Sort', exact: true }).elementHandle();
+    const expires = await page.getByLabel('Link expires in', { exact: true }).elementHandle();
+    const search = await page.getByLabel('Search books', { exact: true }).elementHandle();
+    const placement = await select.evaluate((control, { heading, section, button, expires, search }) => {
+      const before = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      let common = section.parentElement;
+      while (common && !(common.contains(control) && common.contains(button))) common = common.parentElement;
+      return !section.contains(control) && !section.contains(button) && before(heading, control) && before(heading, button) && before(control, expires) && before(button, expires) && before(control, search) && before(button, search) && Boolean(common && !common.querySelector('h1,[role="heading"][aria-level="1"]'));
+    }, { heading, section, button, expires, search });
+    assert(placement, 'Sort controls violate Books/common-container/document-order placement');
+    await checkBooks(page, added);
   },
   AC2: async () => {
-    const f = await fixture(); await goto(owner, f.path);
-    await sort(f, 'Title', 'title', titleOrder);
-    const r = await owner.reload({ waitUntil: 'domcontentloaded' }); assert(r?.status() < 400, 'Reload error');
-    await selected(owner, 'Title'); await checkBooks(owner, titleOrder);
+    const list = await mainFixture();
+    await goto(page, list.path);
+    await applySort(list, 'Title', 'title');
+    await checkBooks(page, titleOrder);
+    const response = await page.reload({ waitUntil: 'domcontentloaded' });
+    assert(response?.status() < 400, 'Reload error status');
+    await selection(page, 'Title');
+    await checkBooks(page, titleOrder);
   },
   AC3: async () => {
-    const f = await fixture(); await goto(owner, f.path);
-    await sort(f, 'Author', 'author', authorOrder);
-    const r = await owner.reload({ waitUntil: 'domcontentloaded' }); assert(r?.status() < 400, 'Reload error');
-    await selected(owner, 'Author'); await checkBooks(owner, authorOrder);
+    const list = await mainFixture();
+    await goto(page, list.path);
+    await applySort(list, 'Author', 'author');
+    await checkBooks(page, authorOrder);
+    const response = await page.reload({ waitUntil: 'domcontentloaded' });
+    assert(response?.status() < 400, 'Reload error status');
+    await selection(page, 'Author');
+    await checkBooks(page, authorOrder);
   },
   AC4: async () => {
-    const f = await fixture(); await goto(owner, `${f.path}?sort=title`);
-    await selected(owner, 'Title'); await checkBooks(owner, titleOrder);
-    await sort(f, 'Date added', 'added', added); await noError(owner);
-    for (const query of ['', '?sort=added', '?sort=bogus']) {
-      await goto(owner, f.path + query); await selected(owner, 'Date added');
-      await checkBooks(owner); await noError(owner);
+    const list = await mainFixture();
+    await goto(page, `${list.path}?sort=title`);
+    await selection(page, 'Title');
+    await applySort(list, 'Date added', 'added');
+    await checkBooks(page, added);
+    await noError(page);
+    for (const suffix of ['', '?sort=added', '?sort=bogus']) {
+      await goto(page, list.path + suffix);
+      await selection(page, 'Date added');
+      await checkBooks(page, added);
+      await noError(page);
     }
   },
   AC5: async () => {
-    const f = await fixture(); await goto(owner, f.path);
-    await sort(f, 'Title', 'title', titleOrder); await sort(f, 'Author', 'author', authorOrder);
-    const link = await share(f);
-    await goto(owner, f.path); await selected(owner, 'Date added'); await checkBooks(owner);
-    await button(owner, 'Sign out').click(); await owner.waitForURL(u => u.pathname === '/');
-    await login(); await goto(owner, f.path); await selected(owner, 'Date added'); await checkBooks(owner);
-    for (const path of [link, `${link}${link.includes('?') ? '&' : '?'}sort=title`]) {
-      await goto(visitor, path); await visible(visitor.getByRole('heading', { name: f.name, level: 1, exact: true }));
-      await checkBooks(visitor);
-      assert(await label(visitor, 'Sort by').count() === 0, 'Share page has Sort by');
+    const list = await mainFixture();
+    await goto(page, list.path);
+    await applySort(list, 'Title', 'title');
+    await checkBooks(page, titleOrder);
+    await applySort(list, 'Author', 'author');
+    await checkBooks(page, authorOrder);
+    const link = await share(list);
+    await goto(page, list.path);
+    await selection(page, 'Date added');
+    await checkBooks(page, added);
+    // Leave an active sort choice immediately before ending the session.
+    await applySort(list, 'Title', 'title');
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/');
+    await login();
+    await goto(page, list.path);
+    await selection(page, 'Date added');
+    await checkBooks(page, added);
+    for (const suffix of ['', '?sort=title']) {
+      await goto(visitor, link + suffix);
+      await checkBooks(visitor, added);
+      assert(await visitor.getByLabel('Sort by', { exact: true }).count() === 0, 'Anonymous share exposes Sort by');
     }
-    await goto(owner, f.path); await checkBooks(owner);
+    await goto(page, list.path);
+    await checkBooks(page, added);
   },
   AC6: async () => {
-    await init();
-    const f = await create('empty');
-    for (const query of ['', '?sort=author']) {
-      await goto(owner, f.path + query);
-      await visible(section(owner).getByText('This list has no books yet.', { exact: true })); await noError(owner);
-      await visible(owner.getByRole('link', { name: 'Edit', exact: true }));
-      for (const name of ['Delete list', 'Search', 'Create share link']) { await visible(button(owner, name)); assert(await button(owner, name).isEnabled(), `${name} disabled`); }
-      await label(owner, 'Search books').fill('zzzz-nothing'); await button(owner, 'Search').click();
-      await visible(owner.getByText('No books found', { exact: true })); await noError(owner);
-      await button(owner, 'Create share link').click();
-      await eventually(async () => assert((await label(owner, 'Share link').inputValue()).includes('/s/'), 'No share URL'), 'Empty list sharing');
-      const link = new URL(await label(owner, 'Share link').inputValue());
-      await goto(visitor, link.pathname + link.search);
-      await visible(section(visitor).getByText('This list has no books yet.', { exact: true }));
-      await owner.getByRole('link', { name: 'Edit', exact: true }).click();
-      await visible(label(owner, 'Name')); await label(owner, 'Name').fill(f.name);
-      await button(owner, 'Save').click(); await owner.waitForURL(u => u.pathname === f.path);
-      await visible(owner.getByRole('heading', { name: f.name, level: 1, exact: true }));
+    // This fixture is independent of the populated fixture and sorting controls.
+    await goto(page, '/lists');
+    if (new URL(page.url()).pathname === '/login') await login();
+    const list = await createList('empty');
+    for (const suffix of ['', '?sort=author']) {
+      await goto(page, list.path + suffix);
+      await visible(books(page).getByText('This list has no books yet.', { exact: true }));
+      await noError(page);
+      await visible(page.getByRole('link', { name: 'Edit', exact: true }));
+      await visible(page.getByRole('button', { name: 'Delete list', exact: true }));
+      await visible(page.getByLabel('Search books', { exact: true }));
+      await visible(page.getByRole('button', { name: 'Create share link', exact: true }));
+      await page.getByRole('link', { name: 'Edit', exact: true }).click();
+      await visible(page.getByLabel('Name', { exact: true }));
+      list.name = `T9 empty edited ${randomUUID()}`;
+      await page.getByLabel('Name', { exact: true }).fill(list.name);
+      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      await page.waitForURL(url => url.pathname === list.path);
+      await visible(page.getByRole('heading', { level: 1, name: list.name, exact: true }));
+      await goto(page, list.path + suffix);
+      await page.getByLabel('Search books', { exact: true }).fill('dune');
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await visible(page.getByRole('listitem').filter({ has: page.getByText('Dune', { exact: true }) }).getByRole('button', { name: 'Add', exact: true }));
+      await visible(books(page).getByText('This list has no books yet.', { exact: true }));
+      const link = await share(list);
+      await goto(visitor, link);
+      await visible(visitor.getByRole('heading', { level: 1, name: list.name, exact: true }));
+      await visible(books(visitor).getByText('This list has no books yet.', { exact: true }));
     }
-    await button(owner, 'Delete list').click(); await owner.waitForURL(u => u.pathname === '/lists');
-    assert(await owner.getByRole('link', { name: f.name, exact: true }).count() === 0, 'Deleted empty list remains');
+    await goto(page, `${list.path}?sort=author`);
+    await page.getByRole('button', { name: 'Delete list', exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/lists');
+    assert(await page.getByRole('link', { name: list.name, exact: true }).count() === 0, 'Deleted empty list remains');
+    const response = await page.goto(new URL(list.path, base).href, { waitUntil: 'domcontentloaded' });
+    assert(response?.status() === 404, 'Deleted empty list is still accessible');
   },
   AC7: async () => {
-    const f = await fixture(); const link = await share(f);
-    await goto(owner, f.path); await checkBooks(owner);
-    const ownerText = await sectionText(owner);
-    assert(!/\b(?:Sort by|Date added|Sort)\b/.test(ownerText), 'Sort control text leaked into Books');
-    await goto(visitor, link); await checkBooks(visitor);
-    assert(ownerText === await sectionText(visitor), 'Owner/share Books text differs');
-    await visible(visitor.getByRole('heading', { name: f.name, level: 1, exact: true })); await readOnly(visitor);
-    const second = await create('other-share');
-    const otherBook = { title: 'Nineteen Eighty-Four', author: 'George Orwell', year: '1949', query: 'orwell' };
-    await add(otherBook); const otherLink = await share(second);
-    for (const [url, own, other, expected] of [[link, f, second, books], [otherLink, second, f, [otherBook]]]) {
-      await goto(visitor, url);
-      await visible(visitor.getByRole('heading', { name: own.name, level: 1, exact: true }));
-      assert(!(await visitor.locator('body').innerText()).includes(other.name), 'Share shows another list name');
-      await checkBooks(visitor, expected.map(b => b.title), expected); await readOnly(visitor);
-      const text = await sectionText(visitor);
-      for (const b of (own === f ? [otherBook] : books)) assert(!text.includes(b.title), 'Share shows another list book');
-    }
+    const list = await mainFixture();
+    const link = await share(list);
+    await goto(page, list.path);
+    await checkBooks(page, added);
+    const ownerText = await bookText(page);
+    assert(!/\bSort by\b|\bDate added\b|\bSort\b/.test(ownerText), `Books contains sorting control text: ${ownerText}`);
+    await goto(visitor, link);
+    await visible(visitor.getByRole('heading', { level: 1, name: list.name, exact: true }));
+    await checkBooks(visitor, added);
+    assert(ownerText === await bookText(visitor), 'Owner/share Books text differs');
+    await readOnly(visitor);
+    // T9 AC7 explicitly references T4 AC3: use disjoint books to expose cross-list leakage.
+    const second = await createList('share isolation');
+    const secondLink = await share(second);
+    await goto(visitor, secondLink);
+    await visible(visitor.getByRole('heading', { level: 1, name: second.name, exact: true }));
+    await visible(books(visitor).getByText('This list has no books yet.', { exact: true }));
+    assert(!(await visitor.locator('body').innerText()).includes(list.name), 'Second share leaks first list name');
+    for (const book of fixture) assert(!(await bookText(visitor)).includes(book.title), 'Second share leaks first list books');
+    await goto(visitor, link);
+    await visible(visitor.getByRole('heading', { level: 1, name: list.name, exact: true }));
+    await checkBooks(visitor, added);
+    assert(!(await visitor.locator('body').innerText()).includes(second.name), 'First share leaks second list name');
+    await readOnly(visitor);
   },
   AC8: async () => {
     let axe;
     try { axe = await readFile('/node_modules/axe-core/axe.min.js', 'utf8'); }
-    catch (e) { throw new Error(`not verified: pinned axe-core bundle cannot be loaded: ${e.message}`); }
-    const f = await fixture(); const failures = [];
+    catch (error) { throw new Error(`Not verified: pinned axe-core bundle /node_modules/axe-core/axe.min.js cannot be loaded: ${error.message}`); }
+    const list = await mainFixture();
+    const failures = [];
     for (const width of [375, 768, 1280]) {
-      await owner.setViewportSize({ width, height: 900 });
-      await goto(owner, `${f.path}?sort=title`); await selected(owner, 'Title'); await checkBooks(owner, titleOrder);
-      await owner.addScriptTag({ content: axe });
-      const violations = await owner.evaluate(async () => {
-        if (!window.axe?.run) throw new Error('not verified: axe-core failed to load');
-        const r = await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } });
-        return r.violations.filter(v => ['serious', 'critical'].includes(v.impact)).map(v => `${v.id}: ${v.nodes.map(n => n.target.join(' ')).join(', ')}`);
+      await page.setViewportSize({ width, height: 900 });
+      await goto(page, `${list.path}?sort=title`);
+      await visible(books(page));
+      await visible(page.getByLabel('Sort by', { exact: true }));
+      await page.evaluate(async () => { if (document.fonts) await document.fonts.ready; });
+      await page.addScriptTag({ content: axe });
+      const violations = await page.evaluate(async () => {
+        if (!globalThis.axe?.run) throw new Error('Not verified: axe-core injection failed');
+        const result = await globalThis.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } });
+        return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => ({ id: item.id, impact: item.impact, targets: item.nodes.map(node => node.target) }));
       });
-      if (violations.length) failures.push(`${width}px: ${violations.join('; ')}`);
+      if (violations.length) failures.push({ width, violations });
     }
-    assert(!failures.length, failures.join(' | '));
+    assert(failures.length === 0, `Serious/critical axe violations: ${JSON.stringify(failures)}`);
   },
 };
 try {
-  for (const id of ids) {
-    try { await checks[id](); emit(id, 'pass'); }
-    catch (e) { emit(id, 'fail', String(e?.message || e).slice(0, 2400)); }
+  base = new URL(process.argv[2]).href;
+  browser = await chromium.launch({ args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  owner = await browser.newContext();
+  anonymous = await browser.newContext();
+  for (const context of [owner, anonymous]) {
+    context.setDefaultTimeout(12000);
+    context.setDefaultNavigationTimeout(20000);
   }
+  page = await owner.newPage();
+  visitor = await anonymous.newPage();
+  await login();
+  for (const id of ids) {
+    try { await checks[id](); report(id); }
+    catch (error) { report(id, error); }
+  }
+} catch (error) {
+  for (const id of ids) report(id, error);
 } finally {
   await browser?.close().catch(() => {});
   clearTimeout(deadline);
