@@ -101,7 +101,7 @@ const PROBES = {
         if (s.setup === 'one-list') { // deterministic content for the list screen
           await page.goto(BASE + '/lists', { waitUntil: 'load' });
           if (!(await page.getByRole('link', { name: 'Weekend reads', exact: true }).count())) {
-            await page.goto(BASE + '/lists/new'); await page.getByLabel('Name', { exact: true }).fill('Weekend reads'); await page.getByRole('button', { name: 'Create list', exact: true }).click(); await page.waitForURL(u => /^\/lists\/[^/]+$/.test(new URL(u).pathname) && new URL(u).pathname !== "/lists/new", { timeout: 15000 });
+            await page.goto(BASE + '/lists/new'); await page.getByLabel('Name', { exact: true }).fill('Weekend reads'); await page.getByRole('button', { name: 'Create list', exact: true }).click(); await page.waitForURL(/\/lists\/[^/]+$/);
           }
         }
         await page.goto(BASE + s.route, { waitUntil: 'load', timeout: 30000 }); await page.addStyleTag({ content: ANIM }); await sleep(800);
@@ -148,7 +148,7 @@ async function crawl(p) { // capture every client-visible response body + storag
     try {
       await signIn(page, PLAN.users.alice); visited.push('signed-in /lists'); await dumpStorage(page, 'alice /lists');
       await page.goto(BASE + '/lists/new'); await page.getByLabel('Name', { exact: true }).fill('Canary crawl list'); await page.getByRole('button', { name: 'Create list', exact: true }).click();
-      await page.waitForURL(u => /^\/lists\/[^/]+$/.test(new URL(u).pathname) && new URL(u).pathname !== "/lists/new", { timeout: 15000 }); const listUrl = page.url(); visited.push('list page'); await dumpStorage(page, 'alice list');
+      await page.waitForURL(/\/lists\/[^/]+$/); const listUrl = page.url(); visited.push('list page'); await dumpStorage(page, 'alice list');
       if (p.books) { try { await page.getByLabel('Search books', { exact: true }).fill('dune'); await page.getByRole('button', { name: 'Search', exact: true }).click(); await sleep(2000);
           const add = page.getByRole('button', { name: 'Add', exact: true }).first(); if (await add.count()) { await add.click(); await sleep(1000); } visited.push('book search'); } catch (e) { log('crawl books', e.message); } }
       await page.goto(listUrl + '/edit').catch(() => { }); await sleep(300); await dumpStorage(page, 'alice edit');
