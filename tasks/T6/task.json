@@ -9,8 +9,23 @@
   "at": "2026-09-28",
   "basis": "owner directive 2026-09-28 (bake-off start: 'use the frozen contracts'); contract derived from the frozen Stack Bake-off Specification section D must-criteria; recorded as a deviation for independent review"
  },
- "checks": {},
+ "checks": {
+  "AC1": "oracle:oracle/T6/check.mjs",
+  "AC2": "oracle:oracle/T6/check.mjs",
+  "AC3": "oracle:oracle/T6/check.mjs",
+  "AC4": "oracle:oracle/T6/check.mjs"
+ },
  "probe_params": {},
  "oracle_timeout_s": 900,
- "amendments": []
+ "amendments": [
+  {
+   "id": "A1",
+   "at": "2026-09-29T02:42:51Z",
+   "kind": "oracle-of-record",
+   "reason": "black-box oracle for AC1-AC4 written by the blind Verifier from the contract before any implementation; sha256 238f6c218323679d3edbf3c4ddb1127ded9956431c658819bcaf16ae8d9c71d4",
+   "files": {
+    "oracle/T6/check.mjs": "238f6c218323679d3edbf3c4ddb1127ded9956431c658819bcaf16ae8d9c71d4"
+   }
+  }
+ ]
 }
