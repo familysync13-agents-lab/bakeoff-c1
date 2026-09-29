@@ -48,3 +48,7 @@ npm run dev
   (no forms or actions, no sign-in); tampered, expired or deleted-list links answer 404. Links cannot be revoked.
 - `src/client` - browser-safe modules; must not import `src/server` (enforced by dependency-cruiser).
 - `src/instrumentation.ts` / `src/instrumentation-client.ts` - Sentry initialisation (server / browser).
+- Error monitoring (T5): `GET /debug/server-error` throws an unhandled error (500, reported via `onRequestError`);
+  `/debug/client-error` has a "Trigger client error" button that throws in the browser. Both answer 404 when
+  `APP_ENV=production`. Server events pass through `scrubSecrets` (`src/server/error-scrubbing.ts`), which replaces
+  `V0_SECRET_CANARY`, `APP_SECRET` and `DATABASE_URL` values anywhere in the event with `[Filtered]`.
