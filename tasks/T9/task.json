@@ -5,9 +5,9 @@
  "contract": "tasks/T9/contract.json",
  "approval": {
   "by": "FamilySYNC13",
-  "contract_sha256": "db4d4def94d1f8a7d2c201e4e2ba38958fb217944274a6ca69f61a0798b64953",
+  "contract_sha256": "0c1cf36514e3d871784c5242107054f94d6beaf9da2847f3b5b0e50f8240d23b",
   "at": "2026-09-29",
-  "basis": "owner approval of this amendment PR (contract v1, Agents App task 1); owner review on GitHub is the authoritative approval"
+  "basis": "owner approval of this amendment PR (contract v2, Agents App task 1); owner review on GitHub is the authoritative approval"
  },
  "checks": {
   "AC1": "oracle:oracle/T9/check.mjs",
@@ -16,7 +16,8 @@
   "AC4": "oracle:oracle/T9/check.mjs",
   "AC5": "oracle:oracle/T9/check.mjs",
   "AC6": "oracle:oracle/T9/check.mjs",
-  "AC7": "oracle:oracle/T9/check.mjs"
+  "AC7": "oracle:oracle/T9/check.mjs",
+  "AC8": "oracle:oracle/T9/check.mjs"
  },
  "probe_params": {},
  "oracle_timeout_s": 900,
@@ -29,6 +30,16 @@
    "files": {
     "tasks/T9/contract.json": "db4d4def94d1f8a7d2c201e4e2ba38958fb217944274a6ca69f61a0798b64953",
     "oracle/T9/check.mjs": "1f2a5e5f5c78bf6db893aee125f8f55c3a2260c84cd97713bb93f52efebd1e18"
+   }
+  },
+  {
+   "id": "A2",
+   "at": "2026-09-29T15:29:43Z",
+   "kind": "contract-amendment+oracle-of-record",
+   "reason": "Agents App: owner-approved contract v2 and its oracle of record (blind Verifier, authored from the contract before implementation).",
+   "files": {
+    "tasks/T9/contract.json": "0c1cf36514e3d871784c5242107054f94d6beaf9da2847f3b5b0e50f8240d23b",
+    "oracle/T9/check.mjs": "73588f191c9503e5f7a37f3ccdd4d256c6a37dca418bcfe122d75dc39e97244f"
    }
   }
  ]
