@@ -8,7 +8,7 @@ import type { ReadingList } from "./lists";
 
 /** Link lifetimes offered to the owner ("Link expires in"); the default is 7 days. */
 export const SHARE_LINK_EXPIRIES = [
-  { value: "1m", label: "1 minute", seconds: 60 },
+  { value: "1m", label: "1 minute", seconds: 60 * 60 },
   { value: "1d", label: "1 day", seconds: 24 * 60 * 60 },
   { value: "7d", label: "7 days", seconds: 7 * 24 * 60 * 60 },
 ] as const;
