@@ -8,7 +8,7 @@ import {
   deleteOwnedList,
   findOwnedList,
   listOwnedLists,
-  renameOwnedList,
+  updateOwnedList,
   type ReadingList,
 } from "@/server/lists";
 import { setupDatabase } from "@/server/setup";
@@ -91,11 +91,11 @@ describe("reading-list data access (owner-scoped)", () => {
   });
 
   it("renames and deletes only for the owner", async () => {
-    expect(await renameOwnedList(handle.db, bob, list.id, "Bob was here")).toBe(false);
+    expect(await updateOwnedList(handle.db, bob, list.id, { name: "Bob was here", description: null })).toBe(false);
     expect(await deleteOwnedList(handle.db, bob, list.id)).toBe(false);
     expect(await nameInDb(list.id)).toBe("Alice's list");
 
-    expect(await renameOwnedList(handle.db, alice, list.id, "Renamed")).toBe(true);
+    expect(await updateOwnedList(handle.db, alice, list.id, { name: "Renamed", description: null })).toBe(true);
     expect(await nameInDb(list.id)).toBe("Renamed");
     expect(await deleteOwnedList(handle.db, alice, list.id)).toBe(true);
     expect(await nameInDb(list.id)).toBeUndefined();

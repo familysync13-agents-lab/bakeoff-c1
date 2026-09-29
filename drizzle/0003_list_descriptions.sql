@@ -1,0 +1,2 @@
+ALTER TABLE "reading_list" ADD COLUMN "description" text;--> statement-breakpoint
+ALTER TABLE "reading_list" ADD CONSTRAINT "reading_list_description_length" CHECK (char_length("reading_list"."description") between 1 and 500);

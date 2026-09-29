@@ -228,6 +228,10 @@ describe("opening share links", () => {
     add.append("key", "/works/OL1W");
     add.append("title", "Injected");
     expect(await digestOf(addBookAction(listId, { status: "idle" }, add))).toContain("/login");
-    expect(await findOwnedList(handle.db, alice, listId)).toEqual({ id: listId, name: "Alice's sci-fi" });
+    expect(await findOwnedList(handle.db, alice, listId)).toEqual({
+      id: listId,
+      name: "Alice's sci-fi",
+      description: null,
+    });
   });
 });

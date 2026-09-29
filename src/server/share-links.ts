@@ -88,7 +88,7 @@ export async function findSharedList(
   listId: string,
 ): Promise<{ list: ReadingList; books: ListBook[] } | null> {
   const [list] = await db
-    .select({ id: readingList.id, name: readingList.name })
+    .select({ id: readingList.id, name: readingList.name, description: readingList.description })
     .from(readingList)
     .where(eq(readingList.id, listId));
   if (!list) return null;
