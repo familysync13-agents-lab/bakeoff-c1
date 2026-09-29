@@ -23,7 +23,7 @@ export default async function ListsPage() {
           You have no reading lists yet. Create one to start collecting books.
         </p>
       ) : (
-        <ul className="mt-8 flex flex-col gap-3">
+        <ul className="mt-8 flex flex-col gap-3" style={{ minWidth: 720 }}>
           {lists.map((list) => (
             <li key={list.id}>
               <Link
