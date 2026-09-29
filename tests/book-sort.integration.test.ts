@@ -125,6 +125,17 @@ describe("list page sort (T9)", () => {
     );
     const text = (markup: string) => markup.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
     expect(text(section)).toBe(text(shared));
+    // Like DOM textContent (tags dropped, no spaces added), the fields of each book still read as separate words.
+    const textContent = section.replace(/<h2[\s\S]*?<\/h2>/, "").replace(/<[^>]+>/g, "");
+    expect(textContent.replace(/\s+/g, " ").trim()).toBe(
+      "The Hobbit J.R.R. Tolkien First published 1937 Dune Frank Herbert First published 1965 " +
+        "Animal Farm George Orwell First published 1945",
+    );
+    expect([...textContent.matchAll(/The Hobbit|Animal Farm|Dune(?![\p{L}\p{N}])/gu)].map((m) => m[0])).toEqual([
+      "The Hobbit",
+      "Dune",
+      "Animal Farm",
+    ]);
   });
 
   it("shows no sort control for a list without books, with or without a sort parameter", async () => {

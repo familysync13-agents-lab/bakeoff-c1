@@ -26,12 +26,13 @@ export function ListBooks({ books, controls }: ListBooksProps) {
           This list has no books yet.
         </p>
       ) : (
+        // Whitespace between the fields keeps the text content readable as words (e.g. "Dune Frank Herbert").
         <ul className="row-start-3 mt-4 flex flex-col gap-3">
           {books.map((book) => (
             <li key={book.id} className="rounded-xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
-              <p className="text-lg font-semibold break-words text-stone-900">{book.title}</p>
-              <p className="break-words text-stone-700">{formatAuthors(book.authors)}</p>
-              <p className="text-sm text-stone-600">{formatFirstPublished(book.firstPublishYear)}</p>
+              <p className="text-lg font-semibold break-words text-stone-900">{book.title}</p>{" "}
+              <p className="break-words text-stone-700">{formatAuthors(book.authors)}</p>{" "}
+              <p className="text-sm text-stone-600">{formatFirstPublished(book.firstPublishYear)}</p>{" "}
             </li>
           ))}
         </ul>
