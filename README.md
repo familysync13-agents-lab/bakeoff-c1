@@ -50,6 +50,11 @@ npm run dev
   500 characters after trimming, CRLF counted as one line break; blank means none, stored as NULL, also enforced by a
   database check). `/lists/{id}` and `/s/{token}` show it directly below the h1 (`src/components/list-description.tsx`).
 - `src/client` - browser-safe modules; must not import `src/server` (enforced by dependency-cruiser).
+- Sorting (T9): on `/lists/{id}` (owner, list with books) a "Sort by" select (Date added / Title / Author) and a "Sort"
+  button navigate to `?sort=added|title|author` (`src/app/lists/[id]/book-sort-form.tsx`). The sort is view-only: never
+  stored, unknown values mean date added, and `/s/{token}` ignores it. Order rules in `src/server/book-sort.ts`
+  (case-insensitive; "Unknown author" last; ties by title, then date added). The control is rendered outside the Books
+  `<section>` but shown between its heading and the items (shared grid rows via subgrid in `list-books.tsx`).
 - `src/instrumentation.ts` / `src/instrumentation-client.ts` - Sentry initialisation (server / browser).
 - Error monitoring (T5): `GET /debug/server-error` throws an unhandled error (500, reported via `onRequestError`);
   `/debug/client-error` has a "Trigger client error" button that throws in the browser. Both answer 404 when
