@@ -2,6 +2,8 @@ import "server-only";
 
 export interface ServerConfig {
   appEnv: string;
+  appUrl: string | undefined;
+  appSecret: string | undefined;
   release: string | undefined;
   databaseUrl: string;
   sentryDsn: string | undefined;
@@ -14,6 +16,8 @@ const nonEmpty = (value: string | undefined): string | undefined => (value ? val
 export function getServerConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   return {
     appEnv: env.APP_ENV || "development",
+    appUrl: nonEmpty(env.APP_URL),
+    appSecret: nonEmpty(env.APP_SECRET),
     release: nonEmpty(env.APP_RELEASE),
     databaseUrl: env.DATABASE_URL ?? "",
     sentryDsn: nonEmpty(env.SENTRY_DSN),

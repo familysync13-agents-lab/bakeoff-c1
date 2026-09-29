@@ -1,4 +1,5 @@
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, check, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 // Better Auth core tables (user, session, account, verification).
 export const user = pgTable("user", {
@@ -73,4 +74,25 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const schema = { user, session, account, verification };
+// Reading lists (T2). Only the owner can read or change a list; deleting a list removes it permanently.
+export const readingList = pgTable(
+  "reading_list",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("reading_list_owner_id_idx").on(table.ownerId, table.createdAt),
+    check("reading_list_name_length", sql`char_length(${table.name}) between 1 and 100`),
+  ],
+);
+
+export const schema = { user, session, account, verification, readingList };

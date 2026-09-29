@@ -32,5 +32,9 @@ npm run dev
 ## Layout
 
 - `src/app` - routes (App Router). `src/components` - shared UI (app shell: header, main, footer). `src/server` - server-only code (config, database, auth, setup/seed, health).
+- Auth and lists (T2): pages `/signup`, `/login`, `/lists`, `/lists/new`, `/lists/{id}`, `/lists/{id}/edit`. Mutations are
+  Server Actions (`src/app/actions/auth.ts`, `src/app/lists/actions.ts`) that re-check the session on every call; all list
+  queries in `src/server/lists.ts` are scoped to the owner, so another user's list behaves like a missing one (404).
+  Sessions are Better Auth cookies (`APP_SECRET`; Secure only when `APP_URL` is https). Deleting a list is permanent.
 - `src/client` - browser-safe modules; must not import `src/server` (enforced by dependency-cruiser).
 - `src/instrumentation.ts` / `src/instrumentation-client.ts` - Sentry initialisation (server / browser).
