@@ -40,3 +40,8 @@ export interface PublicClientConfig {
 export function getPublicClientConfig(config: ServerConfig = getServerConfig()): PublicClientConfig {
   return { sentryDsn: config.publicSentryDsn ?? "", release: config.release ?? "", environment: config.appEnv };
 }
+
+/** The forced-error debug routes (/debug/server-error, /debug/client-error) exist outside production only. */
+export function debugRoutesEnabled(config: ServerConfig = getServerConfig()): boolean {
+  return config.appEnv !== "production";
+}
