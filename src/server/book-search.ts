@@ -55,19 +55,8 @@ export async function searchBooks(query: string, options: BookSearchOptions): Pr
   url.searchParams.set("q", query);
   url.searchParams.set("limit", String(BOOK_SEARCH_LIMIT));
 
-  const signal = AbortSignal.timeout(options.timeoutMs ?? BOOK_SEARCH_TIMEOUT_MS);
-  let body: unknown;
-  try {
-    const response = await doFetch(url, { signal, cache: "no-store", headers: { accept: "application/json" } });
-    if (!response.ok) {
-      await response.body?.cancel().catch(() => undefined);
-      return { ok: false, reason: `HTTP ${response.status}` };
-    }
-    body = JSON.parse(await response.text());
-  } catch (error) {
-    if (signal.aborted) return { ok: false, reason: "timeout" };
-    return { ok: false, reason: error instanceof SyntaxError ? "invalid JSON" : "request failed" };
-  }
+  const response = await doFetch(url, { cache: "no-store", headers: { accept: "application/json" } });
+  const body: unknown = await response.json();
 
   const docs = typeof body === "object" && body !== null ? (body as { docs?: unknown }).docs : undefined;
   if (!Array.isArray(docs)) return { ok: false, reason: "response has no docs array" };
