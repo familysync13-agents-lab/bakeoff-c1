@@ -68,7 +68,7 @@
    "when": "the text of the Books section element (the closest section/region containing the \"Books\" heading, without the heading text) is read on /lists/{id} and, by an anonymous visitor, on the share page"
   },
   {
-   "conditions": "alice signed in; GET /lists/{id}?sort=title for the list of AC1, at 375, 768 and 1280 px width",
+   "conditions": "alice signed in; GET /lists/{id}?sort=title for the list of AC1, at 375, 768 and 1280 px width; measured with the pinned, unmodified axe-core bundle loaded from /node_modules/axe-core/axe.min.js (present in the gate and Verifier environments) and injected into the rendered page by the check, run on the whole document with rule tags wcag2a, wcag2aa, wcag21a, wcag21aa; the application does not ship or expose axe-core, and no substitute accessibility approximation is used (if the bundle cannot be loaded the result is \"not verified\", not a pass)",
    "id": "AC8",
    "metric": "axe-core violations with impact serious or critical (WCAG 2.1 A/AA rule tags)",
    "priority": "must",
@@ -122,7 +122,8 @@
   "surname-aware, article-ignoring (\"The ...\") or locale-specific collation rules beyond case-insensitive comparison",
   "manual reordering (drag and drop) of books",
   "removing books, pagination or filtering",
-  "changes to the book-search test double (gate/mocks/books.mjs) or to oracle/T4/check.mjs"
+  "changes to the book-search test double (gate/mocks/books.mjs) or to oracle/T4/check.mjs",
+  "shipping axe-core (or any accessibility-testing script) in the application, or changing the gate/harness (gate/**) to make AC8 measurable"
  ],
  "open_questions": [],
  "scope": {
