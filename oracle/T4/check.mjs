@@ -46,19 +46,49 @@ async function share(list, duration = '7 days') {
   assert(parsed.origin === base && /^\/s\/[^/]+$/.test(parsed.pathname), 'Share link must be an absolute app /s/{token} URL');
   return url;
 }
-async function booksText(page) {
-  const h = page.getByRole('heading', { name: 'Books', exact: true });
+const normalize = text => text.replace(/\s+/g, ' ').trim();
+async function booksSection(page) {
+  const h = page.getByRole('heading', { level: 2, name: 'Books', exact: true });
   await visible(h);
-  return h.evaluate(el => {
-    const section = el.closest('section,[role="region"]');
-    if (section) return section.innerText.replace(el.innerText, '').replace(/\s+/g, ' ').trim();
-    const range = document.createRange();
-    range.setStartAfter(el);
-    const headings = [...document.querySelectorAll('h1,h2,h3,h4,h5,h6')];
-    const next = headings.find(e => !!(el.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING));
-    if (next) range.setEndBefore(next); else range.setEndAfter(document.body.lastChild);
-    return range.toString().replace(/\s+/g, ' ').trim();
+  const section = h.locator('xpath=ancestor::*[self::section or @role="region"][1]');
+  await visible(section);
+  return section;
+}
+// Retain the whole-section snapshot for AC5's owner-before/owner-after comparison.
+async function booksText(page) {
+  const section = await booksSection(page);
+  return section.evaluate(el => {
+    const h = [...el.querySelectorAll('h2')].find(e => e.innerText.trim() === 'Books');
+    return el.innerText.replace(h.innerText, '').replace(/\s+/g, ' ').trim();
   });
+}
+async function bookItems(page) {
+  const section = await booksSection(page);
+  const items = section.getByRole('listitem');
+  const texts = [];
+  for (let i = 0; i < await items.count(); i++) {
+    await visible(items.nth(i));
+    texts.push(normalize(await items.nth(i).innerText()));
+  }
+  return texts;
+}
+async function sharedBooks(expected) {
+  const actual = await bookItems(ap);
+  assert(JSON.stringify(actual) === JSON.stringify(expected), 'Shared book items differ from persisted owner book items');
+  assert(await booksText(ap) === expected.join(' '), 'Shared Books section contains content other than its book items');
+  assert(await ap.getByRole('combobox', { name: 'Sort by', exact: true }).count() === 0,
+    'Shared page exposes Sort by');
+  assert(await ap.getByRole('button', { name: 'Sort', exact: true }).count() === 0,
+    'Shared page exposes Sort');
+}
+async function readOnlyShare() {
+  for (const name of ['Edit', 'Delete list', 'Search', 'Add', 'Create share link']) {
+    for (const role of ['button', 'link', 'menuitem']) {
+      const controls = ap.getByRole(role, { name, exact: true });
+      for (let i = 0; i < await controls.count(); i++) assert(!await controls.nth(i).isVisible(), `Shared page exposes ${name}`);
+    }
+  }
+  assert(!await ap.getByLabel('Search books', { exact: true }).isVisible(), 'Shared page exposes book search');
 }
 async function search() {
   await op.getByLabel('Search books', { exact: true }).fill('dune');
@@ -130,7 +160,7 @@ try {
     await go(ap, url); await visible(heading(ap, list.name));
     expiry = { list, url, created };
   } catch (e) { emit('AC4', e); }
-  let primary, primaryURL, bookText;
+  let primary, primaryURL, primaryBooks;
   await check('AC1', async () => {
     primary = await create(`T4 books ${suffix}`);
     const add = await search();
@@ -140,18 +170,16 @@ try {
     ]);
     // Reload removes search-result text so the expected book content is persisted list content.
     await go(op, primary.url);
-    bookText = await booksText(op);
-    assert(bookText && !/^(no books|no books yet|this list is empty)[.!]?$/i.test(bookText), 'No persisted book content');
+    primaryBooks = await bookItems(op);
+    assert(primaryBooks.length === 1 && primaryBooks[0], 'Expected one persisted book item');
     primaryURL = await share(primary);
-    await go(ap, primaryURL); await visible(heading(ap, primary.name));
-    assert((await body(ap)).includes(bookText), 'Shared page is missing persisted title/author content');
-    for (const name of ['Edit', 'Delete list', 'Search', 'Add', 'Create share link']) {
-      for (const role of ['button', 'link', 'menuitem']) {
-        const controls = ap.getByRole(role, { name, exact: true });
-        for (let i = 0; i < await controls.count(); i++) assert(!await controls.nth(i).isVisible(), `Shared page exposes ${name}`);
-      }
+    const sortedShare = new URL(primaryURL);
+    sortedShare.searchParams.set('sort', 'title');
+    for (const url of [primaryURL, sortedShare.href]) {
+      await go(ap, url); await visible(heading(ap, primary.name));
+      await sharedBooks(primaryBooks);
+      await readOnlyShare();
     }
-    assert(!await ap.getByLabel('Search books', { exact: true }).isVisible(), 'Shared page exposes book search');
   });
   await check('AC2', async () => {
     const list = await create(`T4 tamper ${suffix}`);
@@ -176,15 +204,17 @@ try {
     }));
   });
   await check('AC3', async () => {
-    assert(primary && primaryURL && bookText, 'Book-bearing shared-list setup failed');
+    assert(primary && primaryURL && primaryBooks?.length, 'Book-bearing shared-list setup failed');
     const other = await create(`T4 other ${suffix}`);
     const otherURL = await share(other);
     await go(ap, primaryURL); await visible(heading(ap, primary.name));
     assert(!(await body(ap)).includes(other.name), 'First link shows second list');
-    assert((await body(ap)).includes(bookText), 'First link lost its books');
+    await sharedBooks(primaryBooks);
     await go(ap, otherURL); await visible(heading(ap, other.name));
     const text = await body(ap);
-    assert(!text.includes(primary.name) && !text.includes(bookText), 'Second link leaks first list or books');
+    assert(!text.includes(primary.name) && primaryBooks.every(item => !text.includes(item)), 'Second link leaks first list or books');
+    assert((await bookItems(ap)).length === 0, 'Second link shows books belonging to another list');
+    assert(await booksText(ap) === 'This list has no books yet.', 'Empty shared list is missing its empty-state message');
   });
   await check('AC5', async () => {
     const list = await create(`T4 replay ${suffix}`);

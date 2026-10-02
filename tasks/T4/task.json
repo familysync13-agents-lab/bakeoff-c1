@@ -29,6 +29,15 @@
    "files": {
     "oracle/T4/check.mjs": "1439c0f88682354aabc1072e8eb9c7ced3f88414ed36af087ca1a4b2e43ba607"
    }
+  },
+  {
+   "id": "A2",
+   "at": "2026-10-02T15:18:51Z",
+   "kind": "oracle-update-superseded",
+   "reason": "Agents App: the owner-approved contract of T10 (sha256 535938a51e56ed5472b7803256e73fd2ea18fd1a29f7a9b65cdf4e119b011ef5) supersedes part of T4 (AC1, AC3): AC1: T4 booksText(op) reads the entire owner Books section's innerText minus its heading, inadvertently including 'Sort by Date added Title Author Sort'. AC1 then requires the anonymous body to include that entire string. The reproduced t4BookText is 'Sort by Date added Title Author Sort Dune Frank Herbert First published 1965', while the share correctly contains only the book fields. This is an overbroad expected-content extraction, not missing persisted books.\n  observed in the application: Re-running T4-check.mjs reproduces 'Shared page is missing persisted title/author content'. Independen The contract text of T4 is kept as the historical record; its check now follows the superseding contract for the superseded behaviour and is otherwise unchanged.",
+   "files": {
+    "oracle/T4/check.mjs": "c29c100b6f1df9cdc52d48025408068a84f9d6425199db3fcb6997d4032d498e"
+   }
   }
  ]
 }
