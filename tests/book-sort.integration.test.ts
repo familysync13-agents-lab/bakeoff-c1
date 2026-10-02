@@ -89,7 +89,7 @@ describe("list page sort (T9)", () => {
     }
   });
 
-  it("renders a GET form to the list page with the Sort by select and Sort button outside the Books section", async () => {
+  it("renders a GET form to the list page with the Sort by select and Sort button inside the Books section", async () => {
     const html = await render(listId, {});
     const listPath = `/lists/${listId}`;
     expect(html).toMatch(new RegExp(`<form [^>]*action="${listPath}" method="get"`));
@@ -102,17 +102,22 @@ describe("list page sort (T9)", () => {
     ]);
     expect(html).toMatch(/<button type="submit"[^>]*>Sort<\/button>/);
 
+    // T10: document (and so focus and reading) order inside the Books section is heading, Sort by, Sort, books.
     const section = booksSection(html);
-    expect(section).toContain(">Books</h2>");
-    expect(section).not.toContain("Sort by");
-    expect(section).not.toContain("Date added");
-    // Document order: Books heading, (section end), sort controls, Share, Search books.
+    const inSection = (text: string) => section.indexOf(text);
+    expect(inSection(">Books</h2>")).toBeGreaterThanOrEqual(0);
+    expect(inSection(">Books</h2>")).toBeLessThan(inSection('<label for="book-sort"'));
+    expect(inSection('<select id="book-sort"')).toBeLessThan(inSection(">Sort</button>"));
+    expect(inSection(">Sort</button>")).toBeLessThan(inSection("<ul"));
+    // The rest of the page keeps its order: Delete list, Books section, Share, Search books.
     const at = (text: string) => html.indexOf(text);
-    expect(at(">Books</h2>")).toBeLessThan(at("</section>"));
-    expect(at(section) + section.length).toBeLessThanOrEqual(at('<label for="book-sort"'));
-    expect(at(">Sort</button>")).toBeLessThan(at("Link expires in"));
+    expect(at(">Delete list</button>")).toBeLessThan(at(section));
+    expect(at(section) + section.length).toBeLessThanOrEqual(at("Link expires in"));
     expect(at("Link expires in")).toBeLessThan(at("Search books"));
-    // The Books section itself matches the read-only share page rendering of the same books.
+    // The book items contain no focusable elements, so Tab goes Sort -> Link expires in.
+    const bookList = /<ul[\s\S]*?<\/ul>/.exec(section)?.[0] ?? "";
+    expect(bookList).not.toMatch(/<(a|button|input|select|textarea)\b|tabindex=/);
+    // The book list matches the read-only share page, whose Books section holds only the heading and the books.
     const shared = renderToStaticMarkup(
       ListBooks({
         books: fixture.map(({ title, authors, firstPublishYear }, i) => ({
@@ -123,10 +128,16 @@ describe("list page sort (T9)", () => {
         })),
       }),
     );
-    const text = (markup: string) => markup.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-    expect(text(section)).toBe(text(shared));
+    expect(shared).not.toContain("Sort");
+    expect(/<ul[\s\S]*?<\/ul>/.exec(shared)?.[0]).toBe(bookList);
+    const text = (markup: string) =>
+      markup
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    expect(text(shared.replace(/<h2[\s\S]*?<\/h2>/, ""))).toBe(text(bookList));
     // Like DOM textContent (tags dropped, no spaces added), the fields of each book still read as separate words.
-    const textContent = section.replace(/<h2[\s\S]*?<\/h2>/, "").replace(/<[^>]+>/g, "");
+    const textContent = bookList.replace(/<[^>]+>/g, "");
     expect(textContent.replace(/\s+/g, " ").trim()).toBe(
       "The Hobbit J.R.R. Tolkien First published 1937 Dune Frank Herbert First published 1965 " +
         "Animal Farm George Orwell First published 1945",
@@ -136,6 +147,14 @@ describe("list page sort (T9)", () => {
       "Dune",
       "Animal Farm",
     ]);
+  });
+
+  it("renders the share-page Books section without controls exactly as before", () => {
+    expect(renderToStaticMarkup(ListBooks({ books: [] }))).toBe(
+      '<section aria-labelledby="books-heading" class="mt-10"><h2 id="books-heading" class="text-2xl font-bold ' +
+        'tracking-tight text-stone-900">Books</h2><p class="row-start-3 mt-4 rounded-2xl border border-dashed ' +
+        'border-stone-300 bg-white px-6 py-10 text-center text-stone-700">This list has no books yet.</p></section>',
+    );
   });
 
   it("shows no sort control for a list without books, with or without a sort parameter", async () => {
