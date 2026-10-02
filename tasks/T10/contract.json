@@ -1,0 +1,138 @@
+{
+ "canary_routes": [
+  "/",
+  "/lists"
+ ],
+ "criteria": [
+  {
+   "given": "alice signed in with the verification fixture list (The Hobbit, Dune, Animal Farm added in this order)",
+   "id": "AC1",
+   "priority": "must",
+   "tags": [],
+   "then": "the \"Sort by\" select (options \"Date added\", \"Title\", \"Author\"; \"Date added\" selected) and the \"Sort\" button are inside the Books section element (the closest section/region ancestor of the h2 \"Books\"), and in document order the \"Books\" heading comes before the \"Sort by\" select, the select before the \"Sort\" button, and the \"Sort\" button before the first book item (\"The Hobbit\"); the books are listed as The Hobbit, Dune, Animal Farm, each with its title, author and first publish year",
+   "type": "behavior",
+   "when": "she opens /lists/{id}"
+  },
+  {
+   "given": "the fixture list open on /lists/{id}",
+   "id": "AC2",
+   "priority": "must",
+   "tags": [],
+   "then": "within the region named \"Books\" the order is: heading \"Books\", combobox \"Sort by\", button \"Sort\", then the list of books (The Hobbit, Dune, Animal Farm); no book title appears before the \"Sort by\" combobox in the page's reading order",
+   "type": "behavior",
+   "when": "the accessibility tree of the page is read in order (as a screen reader reads it)"
+  },
+  {
+   "given": "the fixture list open on /lists/{id} with focus on the \"Delete list\" button",
+   "id": "AC3",
+   "priority": "must",
+   "tags": [],
+   "then": "focus moves \"Delete list\" -> \"Sort by\" select -> \"Sort\" button -> \"Link expires in\" select (no other focusable element in between); after Enter on \"Sort\" the URL is /lists/{id}?sort=title, \"Title\" is selected and the books are listed as Animal Farm, Dune, The Hobbit",
+   "type": "behavior",
+   "when": "alice presses Tab repeatedly, then, with focus on \"Sort by\", selects \"Title\" using only the keyboard, presses Tab to reach \"Sort\" and presses Enter"
+  },
+  {
+   "given": "the fixture list open on /lists/{id}",
+   "id": "AC4",
+   "priority": "must",
+   "tags": [],
+   "then": "after \"Sort\" and after the reload the URL is /lists/{id}?sort=author, \"Author\" is selected and the books are Dune, Animal Farm, The Hobbit; each of the other URLs shows The Hobbit, Dune, Animal Farm with \"Date added\" selected and no error message or error status; the list still has exactly these three books",
+   "type": "behavior",
+   "when": "alice selects \"Author\" in \"Sort by\" and presses \"Sort\", reloads, then opens /lists/{id}, /lists/{id}?sort=added and /lists/{id}?sort=bogus, and finally /lists/{id} again after signing out (\"Sign out\") and in again"
+  },
+  {
+   "given": "the fixture list with a share link created on /lists/{id} with \"Create share link\"",
+   "id": "AC5",
+   "priority": "must",
+   "tags": [],
+   "then": "the share page shows the h1 list name, the \"Books\" heading and the books in date-added order (The Hobbit, Dune, Animal Farm) with no \"Sort by\" select, no \"Sort\" button and no Edit, Delete list, Search, Add or Create share link controls; the text of the share page's Books section element (without its heading) contains only the book items, and equals the text of the list of book items in the owner page's Books section; the existing T4 checks (T4 AC1, AC3) still pass",
+   "type": "behavior",
+   "when": "an anonymous visitor opens the share link, also with ?sort=title appended, and alice opens /lists/{id} without a sort parameter"
+  },
+  {
+   "given": "alice signed in with a list that has no books",
+   "id": "AC6",
+   "priority": "must",
+   "tags": [],
+   "then": "all show \"This list has no books yet.\" inside the Books section without an error, and on /lists/{id} \"Edit\", \"Delete list\", \"Search books\" and \"Create share link\" are present and work as before",
+   "type": "behavior",
+   "when": "she opens /lists/{id} and /lists/{id}?sort=author, and an anonymous visitor opens a share link for it"
+  },
+  {
+   "given": "alice signed in with the fixture list",
+   "id": "AC7",
+   "priority": "must",
+   "tags": [
+    "design"
+   ],
+   "then": "at each width the \"Sort by\" select and the \"Sort\" button are displayed below the bottom edge of the \"Books\" heading and above the top edge of the first book item (\"Animal Farm\"), they do not overlap the heading or any book item, every book item is displayed below them, and the page has no horizontal overflow (document scroll width <= viewport width)",
+   "type": "behavior",
+   "when": "/lists/{id}?sort=title is rendered at 375, 768 and 1280 px viewport width"
+  },
+  {
+   "conditions": "alice signed in; GET /lists/{id} and /lists/{id}?sort=title for the fixture list, at 375, 768 and 1280 px width; measured with the pinned, unmodified axe-core bundle loaded from /node_modules/axe-core/axe.min.js (present in the gate and Verifier environments) and injected into the rendered page by the check, run on the whole document with rule tags wcag2a, wcag2aa, wcag21a, wcag21aa; the application does not ship or expose axe-core, and no substitute accessibility approximation is used (if the bundle cannot be loaded the result is \"not verified\", not a pass)",
+   "id": "AC8",
+   "metric": "axe-core violations with impact serious or critical (WCAG 2.1 A/AA rule tags)",
+   "priority": "must",
+   "tags": [
+    "accessibility"
+   ],
+   "target": "0",
+   "type": "threshold"
+  },
+  {
+   "id": "AC9",
+   "priority": "should",
+   "refs": [
+    "owner judgment at 375, 768 and 1280 px against the T9-accepted list page",
+    "tasks/T9/contract.json AC11",
+    "tasks/T1/contract.json AC1 (visual style)"
+   ],
+   "statement": "The list page /lists/{id} looks the same as before T10 at phone, tablet and desktop widths (same position, spacing and style of the \"Books\" heading, the \"Sort by\" control and the book items), and the share page /s/{token} looks exactly as before.",
+   "tags": [
+    "design"
+   ],
+   "type": "experience"
+  },
+  {
+   "id": "AC10",
+   "priority": "should",
+   "refs": [
+    "WCAG 2.1 SC 1.3.2 Meaningful Sequence",
+    "WCAG 2.1 SC 2.4.3 Focus Order"
+   ],
+   "statement": "With a screen reader (e.g. NVDA or VoiceOver), navigating to the \"Books\" heading and reading on announces the \"Sort by\" control before the books, and heading/region navigation of the list page is otherwise unchanged.",
+   "tags": [
+    "accessibility"
+   ],
+   "type": "experience"
+  }
+ ],
+ "id": "T10",
+ "interface": {
+  "ui": "Route /lists/{id} (owner only; signed in as the seeded user alice@example.test / Correct-Horse-1 via \"Sign in\" on /login). Unchanged names from T9: a select labelled \"Sort by\" with exactly the options \"Date added\" (default), \"Title\", \"Author\", and a button \"Sort\" that navigates to /lists/{id}?sort=added, ?sort=title or ?sort=author; shown when the list has at least one book. New placement (owner decision A): the \"Sort by\" select and the \"Sort\" button are inside the Books section element (the closest <section>/region ancestor of the h2 \"Books\"; that element is a region named \"Books\"), after the \"Books\" heading and before the first book item, in document order, in sequential keyboard focus order and in the accessibility tree. The book items stay in a list inside that element (each item: title, author(s), first publish year), or the text \"This list has no books yet.\" for a list without books. Tab order on /lists/{id} with books: ... \"Edit\", \"Delete list\", \"Sort by\", \"Sort\", then \"Link expires in\" (the book items contain no focusable elements). The share page /s/{token} is unchanged: h1 = list name, the Books section with the h2 \"Books\" and the books in date-added order, no \"Sort by\" control, ?sort ignored. Verification fixture (as T9): a new list (\"Name\", \"Create list\" on /lists/new) to which alice adds, via \"Search books\" / \"Search\" / \"Add\", \"The Hobbit\" (search \"tolkien\"; J.R.R. Tolkien, 1937), then \"Dune\" (search \"dune\"; Frank Herbert, 1965), then \"Animal Farm\" (search \"orwell\"; George Orwell, 1945). Expected orders: date added = The Hobbit, Dune, Animal Farm; Title = Animal Farm, Dune, The Hobbit; Author = Dune, Animal Farm, The Hobbit. Share links via \"Link expires in\" / \"Create share link\" / \"Share link\" (T4)."
+ },
+ "non_goals": [
+  "any change to the visual layout or styling of /lists/{id} (the control keeps its current visual position under the \"Books\" heading and above the books)",
+  "any change to the sorting behaviour of T9: options, labels, sort URLs (?sort=added|title|author), order rules, default/unknown-value handling, or the view-only (never stored) nature of the choice",
+  "any change to the share page /s/{token} (markup, text, order or the absence of a sort control)",
+  "changing which pages show the \"Sort by\" control (e.g. adding it to the share page, the lists index /lists, or search results) or when it is shown",
+  "applying the sort automatically on change, live regions announcing the new order, skip links or other new accessibility features beyond the reading/focus order of the \"Sort by\" control",
+  "reordering any other part of the list page (Edit, Delete list, Share, Search books)",
+  "schema, database or Server Action changes",
+  "changes to the book-search test double (gate/mocks/books.mjs), to the gate/harness (gate/**), or to oracles other than the owner-approved amendment of the T9 placement checks"
+ ],
+ "open_questions": [],
+ "scope": {
+  "paths": [
+   "**"
+  ],
+  "summary": "On the owner's list page /lists/{id}, keyboard and screen-reader users reach the \"Sort by\" control (select \"Sort by\" and button \"Sort\", introduced by T9) before the books it sorts: in document order, focus order and accessibility-tree reading order the page reads \"Books\" heading, then \"Sort by\" / \"Sort\", then the book items, matching what is shown on screen. Owner decision (T10 option A): the control moves inside the Books section element (the <section>/region that contains the h2 \"Books\"), between the \"Books\" heading and the book items. This deliberately supersedes T9's placement rule (T9 interface placement, T9 AC1 'not inside the Books section element' and T9 AC7 'Books section text equals the share page's Books section text'): for the owner page, the comparison with the share page now applies to the book items only (the list of books, or \"This list has no books yet.\"), and the T9 contract and its oracle of record are amended accordingly through the owner-approved amendment process. The visual layout of /lists/{id} (control shown right below the \"Books\" heading and above the book items, at every width), the sorting behaviour of T9 (options, URLs, order rules, view-only, unknown values) and the share page /s/{token} do not change."
+ },
+ "tier": "standard",
+ "title": "Sort control before the books for keyboard and screen-reader users",
+ "traces_to": [
+  "OWNER-INTENT-T10"
+ ],
+ "version": 1
+}
