@@ -10,7 +10,7 @@ function report(criterion, error) {
   console.log(JSON.stringify(error ? { criterion, result: 'fail', detail: String(error.message || error).slice(0, 1800) } : { criterion, result: 'pass' }));
 }
 const deadline = setTimeout(() => {
-  for (const id of ids) report(id, new Error('Not verified: verifier exceeded its nine-minute budget'));
+  for (const id of ids) report(id, new Error('HARNESS: verifier exceeded its nine-minute budget'));
   process.exit(0);
 }, 540000);
 const assert = (value, message) => { if (!value) throw new Error(message); };
@@ -56,15 +56,21 @@ async function login() {
 function books(p) {
   return p.getByRole('heading', { name: 'Books', exact: true }).locator('xpath=ancestor::*[self::section or @role="region"][1]');
 }
+// Read structured content item by item; sorting controls are not book content.
 async function bookText(p) {
   await visible(books(p));
-  return normalize(await books(p).evaluate(element => {
-    const clone = element.cloneNode(true);
-    for (const heading of clone.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"]')) {
-      if (heading.textContent.trim() === 'Books') heading.remove();
-    }
-    return clone.textContent;
-  }));
+  const items = books(p).getByRole('listitem');
+  if (await items.count()) {
+    return normalize((await items.allInnerTexts()).join('\n'));
+  }
+  const empty = books(p).getByText('This list has no books yet.', { exact: true });
+  if (await empty.count()) return normalize(await empty.innerText());
+  return '';
+}
+async function shareSectionText(p) {
+  const text = normalize(await books(p).innerText());
+  assert(/^Books(?:\s|$)/.test(text), 'Share Books heading is not first');
+  return text.replace(/^Books(?:\s|$)/, '').trim();
 }
 async function checkBooks(p, order) {
   await eventually(async () => {
@@ -74,10 +80,10 @@ async function checkBooks(p, order) {
     assert(JSON.stringify(matches.map(m => m[0])) === JSON.stringify(order), `Books order/count: ${text}`);
     const items = section.getByRole('listitem');
     const count = await items.count();
-    if (count) assert(count === order.length, `Expected ${order.length} book items, found ${count}`);
+    assert(count === order.length, `Expected ${order.length} book items, found ${count}`);
     for (let i = 0; i < order.length; i++) {
       const expected = fixture.find(book => book.title === order[i]);
-      const itemText = count ? normalize(await items.nth(i).innerText()) : text.slice(matches[i].index, matches[i + 1]?.index ?? text.length);
+      const itemText = normalize(await items.nth(i).innerText());
       assert(itemText.includes(expected.title) && itemText.includes(expected.author) && itemText.includes(expected.year), `Missing/misplaced book fields for ${expected.title}: ${itemText}`);
     }
   }, 'Books');
@@ -146,7 +152,7 @@ async function share(list) {
   return new URL(url.pathname + url.search, base).href;
 }
 async function readOnly(p) {
-  for (const name of ['Edit', 'Delete list', 'Search', 'Add', 'Create share link']) {
+  for (const name of ['Edit', 'Delete list', 'Search', 'Add', 'Create share link', 'Sort']) {
     for (const role of ['button', 'link']) assert(await p.getByRole(role, { name, exact: true }).count() === 0, `Share page has ${name} control`);
   }
   assert(await p.getByLabel('Search books', { exact: true }).count() === 0, 'Share page has search field');
@@ -167,14 +173,48 @@ const checks = {
     const button = await page.getByRole('button', { name: 'Sort', exact: true }).elementHandle();
     const expires = await page.getByLabel('Link expires in', { exact: true }).elementHandle();
     const search = await page.getByLabel('Search books', { exact: true }).elementHandle();
-    const placement = await select.evaluate((control, { heading, section, button, expires, search }) => {
+    const first = await books(page).getByRole('listitem').first().elementHandle();
+    const placement = await select.evaluate((control, { heading, section, button, expires, search, first }) => {
       const before = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-      let common = section.parentElement;
-      while (common && !(common.contains(control) && common.contains(button))) common = common.parentElement;
-      return !section.contains(control) && !section.contains(button) && before(heading, control) && before(heading, button) && before(control, expires) && before(button, expires) && before(control, search) && before(button, search) && Boolean(common && !common.querySelector('h1,[role="heading"][aria-level="1"]'));
-    }, { heading, section, button, expires, search });
-    assert(placement, 'Sort controls violate Books/common-container/document-order placement');
+      return section.contains(control) && section.contains(button) &&
+        heading.tagName === 'H2' && before(heading, control) && before(control, button) && before(button, first) &&
+        before(control, expires) && before(button, expires) && before(control, search) && before(button, search) &&
+        !section.querySelector('h1,[role="heading"][aria-level="1"]');
+    }, { heading, section, button, expires, search, first });
+    assert(placement, 'Expected Books heading, Sort by, Sort, then books inside Books section');
     await checkBooks(page, added);
+    const region = page.getByRole('region', { name: 'Books', exact: true });
+    assert(await region.count() === 1, 'Expected one region named Books');
+    assert(await region.evaluate((element, section) => element === section, section), 'Books region is not the closest Books section');
+    if (typeof page.locator('body').ariaSnapshot !== 'function') throw new Error('HARNESS: Playwright ariaSnapshot unavailable');
+    const snapshot = await region.ariaSnapshot();
+    const markers = ['heading "Books"', 'combobox "Sort by"', 'button "Sort"', '- list', 'The Hobbit', 'Dune', 'Animal Farm'];
+    let previous = -1;
+    for (const marker of markers) {
+      const index = snapshot.indexOf(marker);
+      assert(index > previous, `Books accessibility order missing/misplaced ${marker}: ${snapshot}`);
+      previous = index;
+    }
+    const whole = await page.locator('body').ariaSnapshot();
+    const comboIndex = whole.indexOf('combobox "Sort by"');
+    for (const title of added) assert(whole.indexOf(title) > comboIndex, `Book ${title} precedes Sort by in accessibility reading order`);
+    await page.getByRole('button', { name: 'Delete list', exact: true }).focus();
+    for (const control of [select, page.getByRole('button', { name: 'Sort', exact: true }), page.getByLabel('Link expires in', { exact: true })]) {
+      await page.keyboard.press('Tab');
+      assert(await control.evaluate(element => element === document.activeElement), 'Incorrect sequential focus order after Delete list');
+    }
+    await select.focus();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowDown');
+    await selection(page, 'Title');
+    await page.keyboard.press('Tab');
+    assert(await page.getByRole('button', { name: 'Sort', exact: true }).evaluate(element => element === document.activeElement), 'Keyboard selection did not reach Sort');
+    await page.keyboard.press('Enter');
+    await page.waitForURL(url => url.pathname === list.path && url.search === '?sort=title');
+    await selection(page, 'Title');
+    await checkBooks(page, titleOrder);
+    await goto(page, list.path);
+
   },
   AC2: async () => {
     const list = await mainFixture();
@@ -280,12 +320,16 @@ const checks = {
     await goto(page, list.path);
     await checkBooks(page, added);
     const ownerText = await bookText(page);
-    assert(!/\bSort by\b|\bDate added\b|\bSort\b/.test(ownerText), `Books contains sorting control text: ${ownerText}`);
-    await goto(visitor, link);
-    await visible(visitor.getByRole('heading', { level: 1, name: list.name, exact: true }));
-    await checkBooks(visitor, added);
-    assert(ownerText === await bookText(visitor), 'Owner/share Books text differs');
-    await readOnly(visitor);
+    for (const suffix of ['', '?sort=title']) {
+      await goto(visitor, link + suffix);
+      await visible(visitor.getByRole('heading', { level: 1, name: list.name, exact: true }));
+      await checkBooks(visitor, added);
+      const shareText = await shareSectionText(visitor);
+      assert(!/\bSort by\b|\bDate added\b|\bSort\b/.test(shareText), `Share Books contains sorting control text: ${shareText}`);
+      assert(shareText === await bookText(visitor), 'Share Books contains content outside book items');
+      assert(ownerText === shareText, 'Owner book items/share Books text differs');
+      await readOnly(visitor);
+    }
     // T9 AC7 explicitly references T4 AC3: use disjoint books to expose cross-list leakage.
     const second = await createList('share isolation');
     const secondLink = await share(second);
@@ -293,7 +337,7 @@ const checks = {
     await visible(visitor.getByRole('heading', { level: 1, name: second.name, exact: true }));
     await visible(books(visitor).getByText('This list has no books yet.', { exact: true }));
     assert(!(await visitor.locator('body').innerText()).includes(list.name), 'Second share leaks first list name');
-    for (const book of fixture) assert(!(await bookText(visitor)).includes(book.title), 'Second share leaks first list books');
+    for (const book of fixture) assert(!(await shareSectionText(visitor)).includes(book.title), 'Second share leaks first list books');
     await goto(visitor, link);
     await visible(visitor.getByRole('heading', { level: 1, name: list.name, exact: true }));
     await checkBooks(visitor, added);
@@ -303,7 +347,7 @@ const checks = {
   AC8: async () => {
     let axe;
     try { axe = await readFile('/node_modules/axe-core/axe.min.js', 'utf8'); }
-    catch (error) { throw new Error(`Not verified: pinned axe-core bundle /node_modules/axe-core/axe.min.js cannot be loaded: ${error.message}`); }
+    catch (error) { throw new Error(`HARNESS: pinned axe-core bundle /node_modules/axe-core/axe.min.js cannot be loaded: ${error.message}`); }
     const list = await mainFixture();
     const failures = [];
     for (const width of [375, 768, 1280]) {
@@ -314,7 +358,7 @@ const checks = {
       await page.evaluate(async () => { if (document.fonts) await document.fonts.ready; });
       await page.addScriptTag({ content: axe });
       const violations = await page.evaluate(async () => {
-        if (!globalThis.axe?.run) throw new Error('Not verified: axe-core injection failed');
+        if (!globalThis.axe?.run) throw new Error('HARNESS: axe-core injection failed');
         const result = await globalThis.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } });
         return result.violations.filter(item => ['serious', 'critical'].includes(item.impact)).map(item => ({ id: item.id, impact: item.impact, targets: item.nodes.map(node => node.target) }));
       });
