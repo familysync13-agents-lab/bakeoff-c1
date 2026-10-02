@@ -52,9 +52,9 @@ npm run dev
 - Sorting (T9): on `/lists/{id}` (owner, list with books) a "Sort by" select (Date added / Title / Author) and a
   "Sort" button form a plain GET form to `/lists/{id}?sort=added|title|author`; the order is view-only (never stored)
   and unknown values mean date added. Rules live in `src/server/book-order.ts` (case-insensitive; author = first
-  listed author, "Unknown author" last; ties by title, then date added). The control sits outside the Books
-  `<section>` but is shown under its heading (the section is a CSS subgrid of `ListBooks`' wrapper); `/s/{token}` is
-  unchanged.
+  listed author, "Unknown author" last; ties by title, then date added). Since T10 the control sits inside the Books
+  `<section>` between the h2 and the book list (document, focus and reading order: heading, "Sort by", "Sort", books;
+  same grid rows as before, so it looks unchanged); `/s/{token}` is unchanged.
 - `src/client` - browser-safe modules; must not import `src/server` (enforced by dependency-cruiser).
 - `src/instrumentation.ts` / `src/instrumentation-client.ts` - Sentry initialisation (server / browser).
 - Error monitoring (T5): `GET /debug/server-error` throws an unhandled error (500, reported via `onRequestError`);
