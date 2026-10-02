@@ -1,0 +1,90 @@
+{
+ "canary_routes": [
+  "/",
+  "/lists"
+ ],
+ "criteria": [
+  {
+   "given": "alice is signed in",
+   "id": "AC1",
+   "priority": "must",
+   "tags": [],
+   "then": "she lands on /lists/{id} and the full 280-character description is shown as text directly below the h1 (the list name), also after a reload",
+   "type": "behavior",
+   "when": "she creates a list on /lists/new with a \"Description\" of exactly 280 characters and clicks \"Create list\""
+  },
+  {
+   "given": "alice owns a list without a description",
+   "id": "AC2",
+   "priority": "must",
+   "tags": [],
+   "then": "each time she lands on /lists/{id}, which shows the current description directly below the h1, and the edit form shows it pre-filled",
+   "type": "behavior",
+   "when": "she opens /lists/{id}/edit, enters a short description in \"Description\", clicks \"Save\", and later edits it to a different description and clicks \"Save\" again"
+  },
+  {
+   "given": "alice owns a list with a description and has created a share link for it with \"Create share link\"",
+   "id": "AC3",
+   "priority": "must",
+   "tags": [],
+   "then": "the page shows the list name as h1 and the description directly below it, and offers no controls to edit the list or its description",
+   "type": "behavior",
+   "when": "the \"Share link\" URL /s/{token} is opened anonymously (no session)"
+  },
+  {
+   "given": "alice owns a list created with an empty \"Description\" (and a share link for it)",
+   "id": "AC4",
+   "priority": "must",
+   "tags": [],
+   "then": "all three work as before T11 and no description text or empty description placeholder is shown below the h1",
+   "type": "behavior",
+   "when": "the list is viewed on /lists/{id}, opened via /s/{token}, and edited with \"Save\" without entering a description"
+  },
+  {
+   "given": "alice on /lists/new or /lists/{id}/edit",
+   "id": "AC5",
+   "priority": "must",
+   "tags": [],
+   "then": "nothing is created or changed and a role=alert element mentions \"description\"; a description of exactly 500 characters is accepted (T6 behavior unchanged)",
+   "type": "behavior",
+   "when": "she submits a \"Description\" longer than 500 characters"
+  },
+  {
+   "id": "AC6",
+   "priority": "should",
+   "refs": [
+    "tasks/T6/contract.json",
+    "README.md#Descriptions (T6)"
+   ],
+   "statement": "The delivered feature is left as accepted in T6: the pull request for T11, if any, contains no changes to application code, schema, migrations or seed.",
+   "tags": [],
+   "type": "experience"
+  }
+ ],
+ "id": "T11",
+ "interface": {
+  "ui": "Unchanged from T2/T4/T6. Seeded user alice (alice@example.test / Correct-Horse-1) signs in on /login (fields \"Email\", \"Password\", button \"Sign in\"). GET /lists/new: fields labelled \"Name\" and \"Description\" (optional, at most 500 characters), button \"Create list\"; success -> /lists/{id}. GET /lists/{id}/edit: \"Name\" and \"Description\" pre-filled, button \"Save\"; success -> /lists/{id}. GET /lists/{id}: h1 = list name, description (when present) as text directly below the h1. Share links: on /lists/{id} button \"Create share link\", read-only field \"Share link\" with {APP_URL}/s/{token}; GET /s/{token} (anonymous) shows h1 = list name and the description (when present) directly below the h1. Invalid input: the form is re-displayed with a role=alert element mentioning \"description\" and nothing is saved."
+ },
+ "non_goals": [
+  "Lowering the existing Description limit from 500 to 280 characters, or enforcing 280 anywhere (the owner chose to keep T6's 500-character limit)",
+  "Amending the T6 contract or its oracle",
+  "Adding a second, separate short description field",
+  "Changing, truncating or migrating stored descriptions",
+  "Any code, schema, migration, seed or styling change",
+  "Rich text, formatting or links in descriptions",
+  "Showing the description on the /lists index page"
+ ],
+ "open_questions": [],
+ "scope": {
+  "paths": [
+   "**"
+  ],
+  "summary": "Owner decision: T11 is closed as already delivered by accepted task T6. Lists already have an optional plain-text \"Description\" that the owner sets on /lists/new and /lists/{id}/edit, at most 500 characters, which includes every description of up to 280 characters. It is shown directly below the h1 on /lists/{id} and on the read-only share page /s/{token}, and lists without a description show no placeholder. This contract asks for no new behavior and no code, schema or migration change. It only confirms on the running preview that the delivered T6 behavior covers the owner's intent, including descriptions of exactly 280 characters, and that nothing has regressed."
+ },
+ "tier": "standard",
+ "title": "Optional list description (closed as already delivered by T6)",
+ "traces_to": [
+  "OWNER-INTENT-T11"
+ ],
+ "version": 1
+}

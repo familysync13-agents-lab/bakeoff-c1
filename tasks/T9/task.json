@@ -61,6 +61,15 @@
     "tasks/T9/contract.json": "33f9201a79c46bf7b4ac14e0073f98588fd1b2d5cfd9a70d77ee9fc8f9ac7f27",
     "oracle/T9/check.mjs": "b9e30d97096787e73765fc33ca5b33ad02b382d20759049c2251e5bc9d7726e2"
    }
+  },
+  {
+   "id": "A5",
+   "at": "2026-10-02T15:24:33Z",
+   "kind": "oracle-update-superseded",
+   "reason": "Agents App: the owner-approved contract of T10 (sha256 535938a51e56ed5472b7803256e73fd2ea18fd1a29f7a9b65cdf4e119b011ef5) supersedes part of T9 (AC1, AC7): AC1: T9 AC1's placement predicate still requires !section.contains(control) && !section.contains(button). Both conditions reject precisely the placement now required by the newest approved contract. This is an obsolete oracle assertion enforcing an explicitly superseded requirement.\n  observed in the application: Re-running T9-check.mjs reproduces its placement failure. Independent Playwright DOM observation finds the select and Sort button inside section[aria-labelledby=books-heading], in the sequence Books heading, Sort by select, Sort button, then the book list. Options are Date added, Titl The contract text of T9 is kept as the historical record; its check now follows the superseding contract for the superseded behaviour and is otherwise unchanged.",
+   "files": {
+    "oracle/T9/check.mjs": "981299fa3b7dcd6f33343de42a3aad661df38b0c10b2fba57d54889e7f4ea4a1"
+   }
   }
  ]
 }
