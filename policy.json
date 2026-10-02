@@ -1,6 +1,6 @@
 {
  "owner_login": "FamilySYNC13",
- "note": "Pre-V0 bake-off policy (both candidates identical). The owner holds every non-engineering decision right; merge authority = owner approval + required gate check (ruleset, empty bypass list).",
+ "note": "Pre-V0 bake-off policy (both candidates identical). The owner holds every non-engineering decision right; merge authority = owner approval (code-owner review; not required for hash-bound task/oracle amendments) + required gate check (ruleset, empty bypass list).",
  "protected_paths": [
   "oracle/**",
   "baselines/**",
@@ -34,5 +34,14 @@
   "T6",
   "T7",
   "T8"
- ]
+ ],
+ "amendment_approval": {
+  "mode": "gate",
+  "author": "familysync13-agents-lab-agent[bot]",
+  "scope": [
+   "tasks/**",
+   "oracle/**"
+  ],
+  "note": "V1 owner policy: contracts within the owner's intent and repaired/updated checks are merged on the gate's AMENDMENT-OK without an owner review. Code, baselines and enforcement files still require the owner's approval."
+ }
 }
